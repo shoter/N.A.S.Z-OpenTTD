@@ -1,0 +1,780 @@
+diff --git a/src/aircraft_cmd.cpp b/src/aircraft_cmd.cpp
+index fcdc33f..6daf04f 100644
+--- a/src/aircraft_cmd.cpp
++++ b/src/aircraft_cmd.cpp
+@@ -231,7 +231,7 @@ void GetAircraftSpriteSize(EngineID engine, uint &width, uint &height)
+  * @param tile tile of depot where aircraft is built
+  * @param flags for command
+  * @param p1 aircraft type being built (engine)
+- * @param p2 unused
++ * @param p2 BUILD_NORMAL or BUILD_LEASE
+  * @param text unused
+  * @return the cost of this operation or an error
+  */
+@@ -242,7 +242,9 @@ CommandCost CmdBuildAircraft(TileIndex tile, DoCommandFlag flags, uint32 p1, uin
+ 
+ 	const Engine *e = Engine::Get(eid);
+ 	const AircraftVehicleInfo *avi = &e->u.air;
+-	CommandCost value(EXPENSES_NEW_VEHICLES, e->GetCost());
++  bool lease = (p2 & BUILD_LEASE);
++
++	CommandCost value(EXPENSES_NEW_VEHICLES, lease ? Money(0) : e->GetCost());
+ 
+ 	/* Engines without valid cargo should not be available */
+ 	if (e->GetDefaultCargoType() == CT_INVALID) return CMD_ERROR;
+@@ -305,7 +307,12 @@ CommandCost CmdBuildAircraft(TileIndex tile, DoCommandFlag flags, uint32 p1, uin
+ 
+ 		v->subtype = (avi->subtype & AIR_CTOL ? AIR_AIRCRAFT : AIR_HELICOPTER);
+ 		v->UpdateDeltaXY(INVALID_DIR);
+-		v->value = value.GetCost();
++		// v->value = value.GetCost();
++    v->value = e->GetCost();
++
++    if (lease) {
++      LeaseVehicle(v);
++    }
+ 
+ 		u->subtype = AIR_SHADOW;
+ 		u->UpdateDeltaXY(INVALID_DIR);
+@@ -381,7 +388,6 @@ CommandCost CmdBuildAircraft(TileIndex tile, DoCommandFlag flags, uint32 p1, uin
+ 	return value;
+ }
+ 
+-
+ /** Sell an aircraft.
+  * @param tile unused
+  * @param flags for command type
+@@ -400,11 +406,14 @@ CommandCost CmdSellAircraft(TileIndex tile, DoCommandFlag flags, uint32 p1, uint
+ 
+ 	if (!v->IsStoppedInDepot()) return_cmd_error(STR_ERROR_AIRCRAFT_MUST_BE_STOPPED);
+ 
+-	if (v->vehstatus & VS_CRASHED) return_cmd_error(STR_ERROR_VEHICLE_IS_DESTROYED);
++	if (v->vehstatus & VS_CRASHED) return_cmd_error(STR_ERROR_VEHICLE_IS_DESTROYED); 
+ 
+-	ret = CommandCost(EXPENSES_NEW_VEHICLES, -v->value);
++  // If leased then deduct this months payment when returning
++  Money value = v->leased ? v->monthly_lease : -v->value;
++	ret = CommandCost(EXPENSES_NEW_VEHICLES, value);
+ 
+ 	if (flags & DC_EXEC) {
++    ReturnLeasedVehicle(v);
+ 		delete v;
+ 	}
+ 
+@@ -536,6 +545,7 @@ void Aircraft::OnNewDay()
+ 
+ 	if ((++this->day_counter & 7) == 0) DecreaseVehicleValue(this);
+ 
++  VehicleLeasePayment(this);
+ 	CheckOrders(this);
+ 
+ 	CheckVehicleBreakdown(this);
+@@ -1130,6 +1140,8 @@ static bool HandleCrashedAircraft(Aircraft *v)
+ 			CLRBITS(st->airport.flags, RUNWAY_IN2_block);    // intercontinental
+ 		}
+ 
++    // Return the vehicle if leased
++    ReturnLeasedVehicle(v);
+ 		delete v;
+ 
+ 		return false;
+diff --git a/src/build_vehicle_gui.cpp b/src/build_vehicle_gui.cpp
+index 69b93cc..42d3a11 100644
+--- a/src/build_vehicle_gui.cpp
++++ b/src/build_vehicle_gui.cpp
+@@ -52,6 +52,8 @@ enum BuildVehicleWidgets {
+ 	BUILD_VEHICLE_WIDGET_PANEL,
+ 	BUILD_VEHICLE_WIDGET_BUILD,
+ 	BUILD_VEHICLE_WIDGET_BUILD_SEL,
++  BUILD_VEHICLE_WIDGET_LEASE,
++  BUILD_VEHICLE_WIDGET_LEASE_SEL,
+ 	BUILD_VEHICLE_WIDGET_RENAME,
+ 	BUILD_VEHICLE_WIDGET_END
+ };
+@@ -87,6 +89,9 @@ static const NWidgetPart _nested_build_vehicle_widgets[] = {
+ 		NWidget(NWID_SELECTION, INVALID_COLOUR, BUILD_VEHICLE_WIDGET_BUILD_SEL),
+ 			NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, BUILD_VEHICLE_WIDGET_BUILD), SetResize(1, 0), SetFill(1, 0),
+ 		EndContainer(),
++    NWidget(NWID_SELECTION, INVALID_COLOUR, BUILD_VEHICLE_WIDGET_LEASE_SEL),
++      NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, BUILD_VEHICLE_WIDGET_LEASE), SetResize(1, 0), SetFill(1, 0),
++    EndContainer(),
+ 		NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, BUILD_VEHICLE_WIDGET_RENAME), SetResize(1, 0), SetFill(1, 0),
+ 		NWidget(WWT_RESIZEBOX, COLOUR_GREY),
+ 	EndContainer(),
+@@ -807,7 +812,11 @@ struct BuildVehicleWindow : Window {
+ 
+ 		/* If we are just viewing the list of vehicles, we do not need the Build button.
+ 		 * So we just hide it, and enlarge the Rename buton by the now vacant place. */
+-		if (this->listview_mode) this->GetWidget<NWidgetStacked>(BUILD_VEHICLE_WIDGET_BUILD_SEL)->SetDisplayedPlane(SZSP_NONE);
++		if (this->listview_mode)
++    {
++      this->GetWidget<NWidgetStacked>(BUILD_VEHICLE_WIDGET_BUILD_SEL)->SetDisplayedPlane(SZSP_NONE);
++      this->GetWidget<NWidgetStacked>(BUILD_VEHICLE_WIDGET_LEASE_SEL)->SetDisplayedPlane(SZSP_NONE);
++    }
+ 
+ 		NWidgetCore *widget = this->GetWidget<NWidgetCore>(BUILD_VEHICLE_WIDGET_LIST);
+ 		widget->tool_tip = STR_BUY_VEHICLE_TRAIN_LIST_TOOLTIP + type;
+@@ -816,6 +825,10 @@ struct BuildVehicleWindow : Window {
+ 		widget->widget_data = STR_BUY_VEHICLE_TRAIN_BUY_VEHICLE_BUTTON + type;
+ 		widget->tool_tip    = STR_BUY_VEHICLE_TRAIN_BUY_VEHICLE_TOOLTIP + type;
+ 
++    widget = this->GetWidget<NWidgetCore>(BUILD_VEHICLE_WIDGET_LEASE);
++    widget->widget_data = STR_BUY_VEHICLE_TRAIN_LEASE_VEHICLE_BUTTON + type;
++    widget->tool_tip    = STR_BUY_VEHICLE_TRAIN_LEASE_VEHICLE_TOOLTIP + type;
++
+ 		widget = this->GetWidget<NWidgetCore>(BUILD_VEHICLE_WIDGET_RENAME);
+ 		widget->widget_data = STR_BUY_VEHICLE_TRAIN_RENAME_BUTTON + type;
+ 		widget->tool_tip    = STR_BUY_VEHICLE_TRAIN_RENAME_TOOLTIP + type;
+@@ -1087,6 +1100,15 @@ struct BuildVehicleWindow : Window {
+ 				break;
+ 			}
+ 
++      case BUILD_VEHICLE_WIDGET_LEASE: {
++        EngineID sel_eng = this->sel_engine;
++        if (sel_eng != INVALID_ENGINE) {
++          CommandCallback *callback = (this->vehicle_type == VEH_TRAIN && RailVehInfo(sel_eng)->railveh_type == RAILVEH_WAGON) ? CcBuildWagon : CcBuildPrimaryVehicle;
++          DoCommandP(this->window_number, sel_eng, BUILD_LEASE, GetCmdBuildVeh(this->vehicle_type), callback);
++        }
++        break;
++      }
++
+ 			case BUILD_VEHICLE_WIDGET_RENAME: {
+ 				EngineID sel_eng = this->sel_engine;
+ 				if (sel_eng != INVALID_ENGINE) {
+diff --git a/src/command.cpp b/src/command.cpp
+index ab5d297..1e01acc 100644
+--- a/src/command.cpp
++++ b/src/command.cpp
+@@ -266,7 +266,7 @@ static const Command _command_proc_table[] = {
+ 
+ 	DEF_CMD(CmdSellAircraft,                                   0), // CMD_SELL_AIRCRAFT
+ 
+-	DEF_CMD(CmdBuildAircraft,                                  0), // CMD_BUILD_AIRCRAFT
++  DEF_CMD(CmdBuildAircraft,                                  0), // CMD_BUILD_AIRCRAFT
+ 	DEF_CMD(CmdSendAircraftToHangar,                           0), // CMD_SEND_AIRCRAFT_TO_HANGAR
+ 	DEF_CMD(CmdRefitAircraft,                                  0), // CMD_REFIT_AIRCRAFT
+ 
+diff --git a/src/command_func.h b/src/command_func.h
+index 462867a..b442cd2 100644
+--- a/src/command_func.h
++++ b/src/command_func.h
+@@ -139,6 +139,7 @@ CommandCallback CcFoundTown;
+ CommandCallback CcFoundRandomTown;
+ 
+ /* vehicle_gui.cpp */
++CommandCallback CcLeasePrimaryVehicle;
+ CommandCallback CcBuildPrimaryVehicle;
+ CommandCallback CcStartStopVehicle;
+ 
+diff --git a/src/command_type.h b/src/command_type.h
+index 19132a2..efe39d7 100644
+--- a/src/command_type.h
++++ b/src/command_type.h
+@@ -213,7 +213,7 @@ enum Commands {
+ 	CMD_RENAME_DEPOT,                 ///< rename a depot
+ 
+ 	CMD_SELL_AIRCRAFT,                ///< sell an aircraft
+-	CMD_BUILD_AIRCRAFT,               ///< build an aircraft
++  CMD_BUILD_AIRCRAFT,               ///< build an aircraft
+ 	CMD_SEND_AIRCRAFT_TO_HANGAR,      ///< send an aircraft to a hanger
+ 	CMD_REFIT_AIRCRAFT,               ///< refit the cargo space of an aircraft
+ 
+diff --git a/src/company_base.h b/src/company_base.h
+index e06bca4..2f2edcb 100644
+--- a/src/company_base.h
++++ b/src/company_base.h
+@@ -48,6 +48,8 @@ struct CompanyProperties {
+ 	Money money;
+ 	byte money_fraction;
+ 	Money current_loan;
++  Money current_lease;
++  Money monthly_lease;
+ 
+ 	byte colour;
+ 
+diff --git a/src/company_cmd.cpp b/src/company_cmd.cpp
+index 34def7f..a571a3c 100644
+--- a/src/company_cmd.cpp
++++ b/src/company_cmd.cpp
+@@ -196,7 +196,8 @@ static void SubtractMoneyFromAnyCompany(Company *c, CommandCost cost)
+ 	                  1 << EXPENSES_AIRCRAFT_RUN |
+ 	                  1 << EXPENSES_SHIP_RUN     |
+ 	                  1 << EXPENSES_PROPERTY     |
+-	                  1 << EXPENSES_LOAN_INT, cost.GetExpensesType())) {
++	                  1 << EXPENSES_LOAN_INT     |
++                    1 << EXPENSES_LEASE_PAY, cost.GetExpensesType())) {
+ 		c->cur_economy.expenses -= cost.GetCost();
+ 	}
+ 
+@@ -486,6 +487,7 @@ Company *DoStartupNewCompany(bool is_ai, CompanyID company = INVALID_COMPANY)
+ 	_company_colours[c->index] = (Colours)c->colour;
+ 
+ 	c->money = c->current_loan = 100000;
++  c->current_lease = c->monthly_lease = 0;
+ 
+ 	c->share_owners[0] = c->share_owners[1] = c->share_owners[2] = c->share_owners[3] = INVALID_OWNER;
+ 
+diff --git a/src/company_gui.cpp b/src/company_gui.cpp
+index a8a024b..aaecbba 100644
+--- a/src/company_gui.cpp
++++ b/src/company_gui.cpp
+@@ -55,6 +55,7 @@ static ExpensesType _expenses_list_1[] = {
+ 	EXPENSES_AIRCRAFT_INC,
+ 	EXPENSES_SHIP_INC,
+ 	EXPENSES_LOAN_INT,
++  EXPENSES_LEASE_PAY,
+ 	EXPENSES_OTHER,
+ };
+ 
+@@ -71,6 +72,7 @@ static ExpensesType _expenses_list_2[] = {
+ 	EXPENSES_SHIP_RUN,
+ 	EXPENSES_PROPERTY,
+ 	EXPENSES_LOAN_INT,
++  EXPENSES_LEASE_PAY,
+ 	INVALID_EXPENSES,
+ 	EXPENSES_CONSTRUCTION,
+ 	EXPENSES_NEW_VEHICLES,
+@@ -133,6 +135,9 @@ enum CompanyFinancesWindowWidgets {
+ 	CFW_BALANCE_VALUE, ///< Bank balance value
+ 	CFW_LOAN_VALUE,    ///< Loan
+ 	CFW_LOAN_LINE,     ///< Line for summing bank balance and loan
++  CFW_LEASE_VALUE,   ///< Lease
++  CFW_LEASE_MONTHLY, ///< Monthly lease payments to make
++  CFW_LEASE_LINE,    ///< Line for lease and monthly lease payments
+ 	CFW_TOTAL_VALUE,   ///< Total
+ 	CFW_MAXLOAN_GAP,   ///< Gap above max loan widget
+ 	CFW_MAXLOAN_VALUE, ///< Max loan widget
+@@ -248,12 +253,14 @@ static const NWidgetPart _nested_company_finances_widgets[] = {
+ 			NWidget(NWID_VERTICAL), // Vertical column with 'bank balance', 'loan'
+ 				NWidget(WWT_TEXT, COLOUR_GREY), SetDataTip(STR_FINANCES_BANK_BALANCE_TITLE, STR_NULL), SetFill(1, 0),
+ 				NWidget(WWT_TEXT, COLOUR_GREY), SetDataTip(STR_FINANCES_LOAN_TITLE, STR_NULL), SetFill(1, 0),
++        NWidget(WWT_TEXT, COLOUR_GREY), SetDataTip(STR_FINANCES_LEASE_TITLE, STR_NULL), SetFill(1, 0),
+ 				NWidget(NWID_SPACER), SetFill(0, 1),
+ 			EndContainer(),
+ 			NWidget(NWID_SPACER), SetFill(0, 0), SetMinimalSize(30, 0),
+ 			NWidget(NWID_VERTICAL), // Vertical column with bank balance amount, loan amount, and total.
+ 				NWidget(WWT_TEXT, COLOUR_GREY, CFW_BALANCE_VALUE), SetDataTip(STR_NULL, STR_NULL),
+ 				NWidget(WWT_TEXT, COLOUR_GREY, CFW_LOAN_VALUE), SetDataTip(STR_NULL, STR_NULL),
++        NWidget(WWT_TEXT, COLOUR_GREY, CFW_LEASE_VALUE), SetDataTip(STR_NULL, STR_NULL),
+ 				NWidget(WWT_EMPTY, COLOUR_GREY, CFW_LOAN_LINE), SetMinimalSize(0, 2), SetFill(1, 0),
+ 				NWidget(WWT_TEXT, COLOUR_GREY, CFW_TOTAL_VALUE), SetDataTip(STR_NULL, STR_NULL),
+ 			EndContainer(),
+@@ -263,6 +270,7 @@ static const NWidgetPart _nested_company_finances_widgets[] = {
+ 					NWidget(NWID_VERTICAL), // Max loan information
+ 						NWidget(WWT_EMPTY, COLOUR_GREY, CFW_MAXLOAN_GAP), SetFill(0, 0),
+ 						NWidget(WWT_TEXT, COLOUR_GREY, CFW_MAXLOAN_VALUE), SetDataTip(STR_FINANCES_MAX_LOAN, STR_NULL),
++            NWidget(WWT_TEXT, COLOUR_GREY, CFW_LEASE_MONTHLY), SetDataTip(STR_FINANCES_LEASE_MONTHLY, STR_NULL),
+ 						NWidget(NWID_SPACER), SetFill(0, 1),
+ 					EndContainer(),
+ 				EndContainer(),
+@@ -307,6 +315,12 @@ struct CompanyFinancesWindow : Window {
+ 				SetDParam(0, _economy.max_loan);
+ 				break;
+ 
++      case CFW_LEASE_MONTHLY: {
++        const Company *c = Company::Get((CompanyID)this->window_number);
++        SetDParam(0, c->monthly_lease);
++        break;
++      }
++
+ 			case CFW_INCREASE_LOAN:
+ 			case CFW_REPAY_LOAN:
+ 				SetDParam(0, LOAN_INTERVAL);
+@@ -330,6 +344,7 @@ struct CompanyFinancesWindow : Window {
+ 				/* Fall through */
+ 			case CFW_BALANCE_VALUE:
+ 			case CFW_LOAN_VALUE:
++      case CFW_LEASE_VALUE:
+ 			case CFW_TOTAL_VALUE:
+ 				SetDParam(0, CompanyFinancesWindow::max_money);
+ 				size->width = max(GetStringBoundingBox(STR_FINANCES_NEGATIVE_INCOME).width, GetStringBoundingBox(STR_FINANCES_POSITIVE_INCOME).width) + padding.width;
+@@ -374,6 +389,13 @@ struct CompanyFinancesWindow : Window {
+ 				break;
+ 			}
+ 
++      case CFW_LEASE_VALUE: {
++        const Company *c = Company::Get((CompanyID)this->window_number);
++        SetDParam(0, c->current_lease);
++        DrawString(r.left, r.right, r.top, STR_FINANCES_TOTAL_CURRENCY, TC_FROMSTRING, SA_RIGHT);
++        break;
++      }
++
+ 			case CFW_TOTAL_VALUE: {
+ 				const Company *c = Company::Get((CompanyID)this->window_number);
+ 				SetDParam(0, c->money - c->current_loan);
+diff --git a/src/economy_type.h b/src/economy_type.h
+index 08cb2ce..496c0d4 100644
+--- a/src/economy_type.h
++++ b/src/economy_type.h
+@@ -154,6 +154,7 @@ enum ExpensesType {
+ 	EXPENSES_AIRCRAFT_INC,        ///< Income from aircrafts.
+ 	EXPENSES_SHIP_INC,            ///< Income from ships.
+ 	EXPENSES_LOAN_INT,            ///< Interest payments over the loan.
++  EXPENSES_LEASE_PAY,           ///< Lease payments
+ 	EXPENSES_OTHER,               ///< Other expenses.
+ 	EXPENSES_END,                 ///< Number of expense types.
+ 	INVALID_EXPENSES      = 0xFF, ///< Invalid expense type.
+diff --git a/src/lang/english.txt b/src/lang/english.txt
+index 089c7a5..4b639eb 100644
+--- a/src/lang/english.txt
++++ b/src/lang/english.txt
+@@ -1231,6 +1231,9 @@ STR_CONFIG_SETTING_MAX_ROAD_VEHICLES                            :{LTBLUE}Max roa
+ STR_CONFIG_SETTING_MAX_AIRCRAFT                                 :{LTBLUE}Max aircraft per player: {ORANGE}{STRING1}
+ STR_CONFIG_SETTING_MAX_SHIPS                                    :{LTBLUE}Max ships per player: {ORANGE}{STRING1}
+ 
++STR_CONFIG_SETTING_LEASE_TERM                                   :{LTBLUE}Length of vehicle lease in years: {ORANGE}{STRING1}
++STR_CONFIG_SETTING_LEASE_INTEREST                               :{LTBLUE}Lease interest rate: {ORANGE}{STRING1}%
++
+ STR_CONFIG_SETTING_AI_BUILDS_TRAINS                             :{LTBLUE}Disable trains for computer: {ORANGE}{STRING1}
+ STR_CONFIG_SETTING_AI_BUILDS_ROAD_VEHICLES                      :{LTBLUE}Disable road vehicles for computer: {ORANGE}{STRING1}
+ STR_CONFIG_SETTING_AI_BUILDS_AIRCRAFT                           :{LTBLUE}Disable aircraft for computer: {ORANGE}{STRING1}
+@@ -2614,6 +2617,7 @@ STR_FINANCES_SECTION_ROAD_VEHICLE_INCOME                        :{GOLD}Road Vehi
+ STR_FINANCES_SECTION_AIRCRAFT_INCOME                            :{GOLD}Aircraft Income
+ STR_FINANCES_SECTION_SHIP_INCOME                                :{GOLD}Ship Income
+ STR_FINANCES_SECTION_LOAN_INTEREST                              :{GOLD}Loan Interest
++STR_FINANCES_SECTION_LEASE_PAYMENTS                             :{GOLD}Lease Payments
+ STR_FINANCES_SECTION_OTHER                                      :{GOLD}Other
+ STR_FINANCES_NEGATIVE_INCOME                                    :{BLACK}-{CURRENCY}
+ STR_FINANCES_POSITIVE_INCOME                                    :{BLACK}+{CURRENCY}
+@@ -2621,6 +2625,8 @@ STR_FINANCES_TOTAL_CAPTION                                      :{WHITE}Total:
+ STR_FINANCES_BANK_BALANCE_TITLE                                 :{WHITE}Bank Balance
+ STR_FINANCES_LOAN_TITLE                                         :{WHITE}Loan
+ STR_FINANCES_MAX_LOAN                                           :{WHITE}Max Loan: {BLACK}{CURRENCY}
++STR_FINANCES_LEASE_TITLE                                        :{WHITE}Lease
++STR_FINANCES_LEASE_MONTHLY                                      :{WHITE}Monthly lease: {BLACK}{CURRENCY}
+ STR_FINANCES_TOTAL_CURRENCY                                     :{BLACK}{CURRENCY}
+ STR_FINANCES_BORROW_BUTTON                                      :{BLACK}Borrow {CURRENCY}
+ STR_FINANCES_BORROW_TOOLTIP                                     :{BLACK}Increase size of loan. Ctrl+Click borrows as much as possible
+@@ -2797,6 +2803,16 @@ STR_BUY_VEHICLE_ROAD_VEHICLE_BUY_VEHICLE_TOOLTIP                :{BLACK}Buy the
+ STR_BUY_VEHICLE_SHIP_BUY_VEHICLE_TOOLTIP                        :{BLACK}Buy the highlighted ship
+ STR_BUY_VEHICLE_AIRCRAFT_BUY_VEHICLE_TOOLTIP                    :{BLACK}Buy the highlighted aircraft
+ 
++STR_BUY_VEHICLE_TRAIN_LEASE_VEHICLE_BUTTON                      :{BLACK}Lease Vehicle
++STR_BUY_VEHICLE_ROAD_VEHICLE_LEASE_VEHICLE_BUTTON               :{BLACK}Lease Vehicle
++STR_BUY_VEHICLE_SHIP_VEHICLE_LEASE_VEHICLE_BUTTON               :{BLACK}Lease Ship
++STR_BUY_VEHICLE_AIRCRAFT_LEASE_VEHICLE_BUTTON                   :{BLACK}Lease Aircraft
++
++STR_BUY_VEHICLE_TRAIN_LEASE_VEHICLE_TOOLTIP                      :{BLACK}Lease Vehicle
++STR_BUY_VEHICLE_ROAD_VEHICLE_LEASE_VEHICLE_TOOLTIP               :{BLACK}Lease Vehicle
++STR_BUY_VEHICLE_SHIP_VEHICLE_LEASE_VEHICLE_TOOLTIP               :{BLACK}Lease Ship
++STR_BUY_VEHICLE_AIRCRAFT_LEASE_VEHICLE_TOOLTIP                   :{BLACK}Lease Aircraft
++
+ STR_BUY_VEHICLE_TRAIN_RENAME_BUTTON                             :{BLACK}Rename
+ STR_BUY_VEHICLE_ROAD_VEHICLE_RENAME_BUTTON                      :{BLACK}Rename
+ STR_BUY_VEHICLE_SHIP_RENAME_BUTTON                              :{BLACK}Rename
+diff --git a/src/lang/english_US.txt b/src/lang/english_US.txt
+index 396f5a2..fa1e848 100644
+--- a/src/lang/english_US.txt
++++ b/src/lang/english_US.txt
+@@ -1220,6 +1220,9 @@ STR_CONFIG_SETTING_MAX_ROAD_VEHICLES                            :{LTBLUE}Max roa
+ STR_CONFIG_SETTING_MAX_AIRCRAFT                                 :{LTBLUE}Max aircraft per player: {ORANGE}{STRING}
+ STR_CONFIG_SETTING_MAX_SHIPS                                    :{LTBLUE}Max ships per player: {ORANGE}{STRING}
+ 
++STR_CONFIG_SETTING_LEASE_TERM                                   :{LTBLUE}Length of vehicle lease in years: {ORANGE}{STRING1}
++STR_CONFIG_SETTING_LEASE_INTEREST                               :{LTBLUE}Lease interest rate: {ORANGE}{STRING1}%
++
+ STR_CONFIG_SETTING_AI_BUILDS_TRAINS                             :{LTBLUE}Disable trains for computer: {ORANGE}{STRING}
+ STR_CONFIG_SETTING_AI_BUILDS_ROAD_VEHICLES                      :{LTBLUE}Disable road vehicles for computer: {ORANGE}{STRING}
+ STR_CONFIG_SETTING_AI_BUILDS_AIRCRAFT                           :{LTBLUE}Disable aircraft for computer: {ORANGE}{STRING}
+@@ -2553,6 +2556,7 @@ STR_FINANCES_SECTION_ROAD_VEHICLE_INCOME                        :{GOLD}Road Vehi
+ STR_FINANCES_SECTION_AIRCRAFT_INCOME                            :{GOLD}Aircraft Income
+ STR_FINANCES_SECTION_SHIP_INCOME                                :{GOLD}Ship Income
+ STR_FINANCES_SECTION_LOAN_INTEREST                              :{GOLD}Loan Interest
++STR_FINANCES_SECTION_LEASE_PAYMENTS                             :{GOLD}Lease Payments
+ STR_FINANCES_SECTION_OTHER                                      :{GOLD}Other
+ STR_FINANCES_NEGATIVE_INCOME                                    :{BLACK}-{CURRENCY}
+ STR_FINANCES_POSITIVE_INCOME                                    :{BLACK}+{CURRENCY}
+@@ -2560,6 +2564,8 @@ STR_FINANCES_TOTAL_CAPTION                                      :{WHITE}Total:
+ STR_FINANCES_BANK_BALANCE_TITLE                                 :{WHITE}Bank Balance
+ STR_FINANCES_LOAN_TITLE                                         :{WHITE}Loan
+ STR_FINANCES_MAX_LOAN                                           :{WHITE}Max Loan: {BLACK}{CURRENCY}
++STR_FINANCES_LEASE_TITLE                                        :{WHITE}Lease
++STR_FINANCES_LEASE_MONTHLY                                      :{WHITE}Monthly lease: {BLACK}{CURRENCY}
+ STR_FINANCES_TOTAL_CURRENCY                                     :{BLACK}{CURRENCY}
+ STR_FINANCES_BORROW_BUTTON                                      :{BLACK}Borrow {CURRENCY}
+ STR_FINANCES_BORROW_TOOLTIP                                     :{BLACK}Increase size of loan. Ctrl+Click borrows as much as possible
+diff --git a/src/roadveh_cmd.cpp b/src/roadveh_cmd.cpp
+index 63bc8f4..fbfd20a 100644
+--- a/src/roadveh_cmd.cpp
++++ b/src/roadveh_cmd.cpp
+@@ -208,7 +208,9 @@ CommandCost CmdBuildRoadVeh(TileIndex tile, DoCommandFlag flags, uint32 p1, uint
+ 	/* Engines without valid cargo should not be available */
+ 	if (e->GetDefaultCargoType() == CT_INVALID) return CMD_ERROR;
+ 
+-	CommandCost cost(EXPENSES_NEW_VEHICLES, e->GetCost());
++  bool lease = (p2 & BUILD_LEASE);
++
++	CommandCost cost(EXPENSES_NEW_VEHICLES, lease ? Money(0) : e->GetCost());
+ 	if (flags & DC_QUERY_COST) return cost;
+ 
+ 	/* The ai_new queries the vehicle cost before building the route,
+@@ -252,7 +254,11 @@ CommandCost CmdBuildRoadVeh(TileIndex tile, DoCommandFlag flags, uint32 p1, uint
+ 		v->spritenum = rvi->image_index;
+ 		v->cargo_type = e->GetDefaultCargoType();
+ 		v->cargo_cap = rvi->capacity;
+-		v->value = cost.GetCost();
++		v->value = e->GetCost();
++
++    if (lease) {
++      LeaseVehicle(v);
++    }
+ 
+ 		v->last_station_visited = INVALID_STATION;
+ 		v->max_speed = rvi->max_speed;
+@@ -344,9 +350,12 @@ CommandCost CmdSellRoadVeh(TileIndex tile, DoCommandFlag flags, uint32 p1, uint3
+ 		return_cmd_error(STR_ERROR_ROAD_VEHICLE_MUST_BE_STOPPED_INSIDE_DEPOT);
+ 	}
+ 
+-	ret = CommandCost(EXPENSES_NEW_VEHICLES, -v->value);
++  // If leased then deduct this months payment when returning
++  Money value = v->leased ? v->monthly_lease : -v->value;
++	ret = CommandCost(EXPENSES_NEW_VEHICLES, value);
+ 
+ 	if (flags & DC_EXEC) {
++    ReturnLeasedVehicle(v);
+ 		delete v;
+ 	}
+ 
+@@ -498,7 +507,7 @@ static void DeleteLastRoadVeh(RoadVehicle *v)
+ 
+ 	/* Only leave the road stop when we're really gone. */
+ 	if (IsInsideMM(v->state, RVSB_IN_ROAD_STOP, RVSB_IN_ROAD_STOP_END)) RoadStop::GetByTile(v->tile, GetRoadStopType(v->tile))->Leave(v);
+-
++  ReturnLeasedVehicle(v);
+ 	delete v;
+ }
+ 
+@@ -1703,6 +1712,8 @@ static void CheckIfRoadVehNeedsService(RoadVehicle *v)
+ 
+ void RoadVehicle::OnNewDay()
+ {
++  VehicleLeasePayment(this);
++
+ 	if (!this->IsRoadVehFront()) return;
+ 
+ 	if ((++this->day_counter & 7) == 0) DecreaseVehicleValue(this);
+diff --git a/src/settings_gui.cpp b/src/settings_gui.cpp
+index abb0bf3..06784b9 100644
+--- a/src/settings_gui.cpp
++++ b/src/settings_gui.cpp
+@@ -1468,6 +1468,8 @@ static SettingEntry _settings_vehicles[] = {
+ 	SettingEntry("vehicle.dynamic_engines"),
+ 	SettingEntry("vehicle.roadveh_acceleration_model"),
+ 	SettingEntry("vehicle.roadveh_slope_steepness"),
++  SettingEntry("vehicle.lease_term"),
++  SettingEntry("vehicle.lease_interest"),
+ };
+ /** Vehicles sub-page */
+ static SettingsPage _settings_vehicles_page = {_settings_vehicles, lengthof(_settings_vehicles)};
+diff --git a/src/settings_type.h b/src/settings_type.h
+index c2d999c..e8e0cfb 100644
+--- a/src/settings_type.h
++++ b/src/settings_type.h
+@@ -329,6 +329,8 @@ struct VehicleSettings {
+ 	byte   extend_vehicle_life;              ///< extend vehicle life by this many years
+ 	byte   road_side;                        ///< the side of the road vehicles drive on
+ 	uint8  plane_crashes;                    ///< number of plane crashes, 0 = none, 1 = reduced, 2 = normal
++  uint8  lease_term;                       ///< years that vehicles are leased for
++  uint8  lease_interest;
+ };
+ 
+ /** Settings related to the economy. */
+diff --git a/src/ship_cmd.cpp b/src/ship_cmd.cpp
+index d231f7a..d5c52e8 100644
+--- a/src/ship_cmd.cpp
++++ b/src/ship_cmd.cpp
+@@ -169,6 +169,7 @@ void Ship::OnNewDay()
+ 	if ((++this->day_counter & 7) == 0)
+ 		DecreaseVehicleValue(this);
+ 
++  VehicleLeasePayment(this);
+ 	CheckVehicleBreakdown(this);
+ 	AgeVehicle(this);
+ 	CheckIfShipNeedsService(this);
+@@ -612,7 +613,9 @@ CommandCost CmdBuildShip(TileIndex tile, DoCommandFlag flags, uint32 p1, uint32
+ 	if (!IsEngineBuildable(eid, VEH_SHIP, _current_company)) return_cmd_error(STR_ERROR_SHIP_NOT_AVAILABLE);
+ 
+ 	const Engine *e = Engine::Get(eid);
+-	CommandCost value(EXPENSES_NEW_VEHICLES, e->GetCost());
++  bool lease = (p2 & BUILD_LEASE);
++
++	CommandCost value(EXPENSES_NEW_VEHICLES, lease ? Money(0) : e->GetCost());
+ 
+ 	/* Engines without valid cargo should not be available */
+ 	if (e->GetDefaultCargoType() == CT_INVALID) return CMD_ERROR;
+@@ -652,7 +655,11 @@ CommandCost CmdBuildShip(TileIndex tile, DoCommandFlag flags, uint32 p1, uint32
+ 		v->spritenum = svi->image_index;
+ 		v->cargo_type = e->GetDefaultCargoType();
+ 		v->cargo_cap = svi->capacity;
+-		v->value = value.GetCost();
++		v->value = e->GetCost();
++
++    if (lease) {
++      LeaseVehicle(v);
++    }
+ 
+ 		v->last_station_visited = INVALID_STATION;
+ 		v->max_speed = svi->max_speed;
+@@ -716,9 +723,12 @@ CommandCost CmdSellShip(TileIndex tile, DoCommandFlag flags, uint32 p1, uint32 p
+ 		return_cmd_error(STR_ERROR_SHIP_MUST_BE_STOPPED_IN_DEPOT);
+ 	}
+ 
+-	ret = CommandCost(EXPENSES_NEW_VEHICLES, -v->value);
++  // If leased then deduct this months payment when returning
++  Money value = v->leased ? v->monthly_lease : -v->value;
++	ret = CommandCost(EXPENSES_NEW_VEHICLES, value);
+ 
+ 	if (flags & DC_EXEC) {
++    ReturnLeasedVehicle(v);
+ 		delete v;
+ 	}
+ 
+diff --git a/src/table/settings.h b/src/table/settings.h
+index dbfc87c..1fe9bad 100644
+--- a/src/table/settings.h
++++ b/src/table/settings.h
+@@ -398,6 +398,8 @@ const SettingDesc _settings[] = {
+ 	     SDT_VAR(GameSettings, vehicle.max_roadveh,                 SLE_UINT16,                     0, 0,   500,     0,    5000, 0, STR_CONFIG_SETTING_MAX_ROAD_VEHICLES,      RedrawScreen),
+ 	     SDT_VAR(GameSettings, vehicle.max_aircraft,                SLE_UINT16,                     0, 0,   200,     0,    5000, 0, STR_CONFIG_SETTING_MAX_AIRCRAFT,           RedrawScreen),
+ 	     SDT_VAR(GameSettings, vehicle.max_ships,                   SLE_UINT16,                     0, 0,   300,     0,    5000, 0, STR_CONFIG_SETTING_MAX_SHIPS,              RedrawScreen),
++       SDT_VAR(GameSettings, vehicle.lease_term,                  SLE_UINT8,                      0, 0,   3,       1,      50, 0, STR_CONFIG_SETTING_LEASE_TERM,             NULL),
++       SDT_VAR(GameSettings, vehicle.lease_interest,              SLE_UINT8,                      0, 0,   20,      5,     200, 0, STR_CONFIG_SETTING_LEASE_INTEREST,         NULL),
+ 	SDTG_CONDBOOL(NULL,             0, NN, _old_vds.servint_ispercent, false,            STR_NULL, NULL, 0, 119),
+ 	SDTG_CONDVAR(NULL,  SLE_UINT16, 0, D0, _old_vds.servint_trains,      150, 5, 800, 0, STR_NULL, NULL, 0, 119),
+ 	SDTG_CONDVAR(NULL,  SLE_UINT16, 0, D0, _old_vds.servint_roadveh,     150, 5, 800, 0, STR_NULL, NULL, 0, 119),
+diff --git a/src/train_cmd.cpp b/src/train_cmd.cpp
+index c252f1f..280c1e7 100644
+--- a/src/train_cmd.cpp
++++ b/src/train_cmd.cpp
+@@ -540,11 +540,12 @@ void DrawTrainEngine(int left, int right, int preferred_x, int y, EngineID engin
+ 	}
+ }
+ 
+-static CommandCost CmdBuildRailWagon(EngineID engine, TileIndex tile, DoCommandFlag flags)
++static CommandCost CmdBuildRailWagon(EngineID engine, TileIndex tile, DoCommandFlag flags, bool lease)
+ {
+ 	const Engine *e = Engine::Get(engine);
+ 	const RailVehicleInfo *rvi = &e->u.rail;
+-	CommandCost value(EXPENSES_NEW_VEHICLES, e->GetCost());
++
++	CommandCost value(EXPENSES_NEW_VEHICLES, lease ? Money(0) : e->GetCost());
+ 
+ 	/* Engines without valid cargo should not be available */
+ 	if (e->GetDefaultCargoType() == CT_INVALID) return CMD_ERROR;
+@@ -590,7 +591,11 @@ static CommandCost CmdBuildRailWagon(EngineID engine, TileIndex tile, DoCommandF
+ 
+ 		v->cargo_type = e->GetDefaultCargoType();
+ 		v->cargo_cap = rvi->capacity;
+-		v->value = value.GetCost();
++		v->value = e->GetCost();
++
++    if (lease) {
++      LeaseVehicle(v);
++    }
+ 
+ 		v->railtype = rvi->railtype;
+ 
+@@ -695,7 +700,9 @@ CommandCost CmdBuildRailVehicle(TileIndex tile, DoCommandFlag flags, uint32 p1,
+ 
+ 	const Engine *e = Engine::Get(eid);
+ 	const RailVehicleInfo *rvi = &e->u.rail;
+-	CommandCost value(EXPENSES_NEW_VEHICLES, e->GetCost());
++  bool lease = (p2 & BUILD_LEASE);
++
++	CommandCost value(EXPENSES_NEW_VEHICLES, lease ? Money(0) : e->GetCost());
+ 
+ 	/* Engines with CT_INVALID should not be available */
+ 	if (e->GetDefaultCargoType() == CT_INVALID) return CMD_ERROR;
+@@ -707,7 +714,7 @@ CommandCost CmdBuildRailVehicle(TileIndex tile, DoCommandFlag flags, uint32 p1,
+ 	if (!IsRailDepotTile(tile)) return CMD_ERROR;
+ 	if (!IsTileOwner(tile, _current_company)) return CMD_ERROR;
+ 
+-	if (rvi->railveh_type == RAILVEH_WAGON) return CmdBuildRailWagon(eid, tile, flags);
++	if (rvi->railveh_type == RAILVEH_WAGON) return CmdBuildRailWagon(eid, tile, flags, lease);
+ 
+ 	uint num_vehicles =
+ 		(rvi->railveh_type == RAILVEH_MULTIHEAD ? 2 : 1) +
+@@ -746,7 +753,12 @@ CommandCost CmdBuildRailVehicle(TileIndex tile, DoCommandFlag flags, uint32 p1,
+ 		v->cargo_type = e->GetDefaultCargoType();
+ 		v->cargo_cap = rvi->capacity;
+ 		v->max_speed = rvi->max_speed;
+-		v->value = value.GetCost();
++		v->value = e->GetCost();
++
++    if (lease) {
++      LeaseVehicle(v);
++    }
++
+ 		v->last_station_visited = INVALID_STATION;
+ 
+ 		v->engine_type = eid;
+@@ -1391,7 +1403,10 @@ CommandCost CmdSellRailWagon(TileIndex tile, DoCommandFlag flags, uint32 p1, uin
+ 	}
+ 
+ 	CommandCost cost(EXPENSES_NEW_VEHICLES);
+-	for (Train *t = sell_head; t != NULL; t = t->Next()) cost.AddCost(-t->value);
++  for (Train *t = sell_head; t != NULL; t = t->Next()) {
++    Money value = t->leased ? t->monthly_lease : -t->value;
++    cost.AddCost(value);
++  }
+ 
+ 	/* do it? */
+ 	if (flags & DC_EXEC) {
+@@ -1419,6 +1434,11 @@ CommandCost CmdSellRailWagon(TileIndex tile, DoCommandFlag flags, uint32 p1, uin
+ 		/* We are undoubtedly changing something in the depot and train list. */
+ 		InvalidateWindowData(WC_VEHICLE_DEPOT, v->tile);
+ 		InvalidateWindowClassesData(WC_TRAINS_LIST, 0);
++  
++    /* Return each leased vehicle. */
++    for (Train *t = sell_head; t != NULL; t = t->Next()) {
++      ReturnLeasedVehicle(t);
++    }
+ 
+ 		/* Actually delete the sold 'goods' */
+ 		delete sell_head;
+@@ -3490,6 +3510,8 @@ static void DeleteLastWagon(Train *v)
+ 	TileIndex tile = v->tile;
+ 	Owner owner = v->owner;
+ 
++  // Return the Vehicle if leased
++  ReturnLeasedVehicle(v);
+ 	delete v;
+ 	v = NULL; // make sure nobody will try to read 'v' anymore
+ 
+@@ -4014,6 +4036,8 @@ void Train::OnNewDay()
+ {
+ 	if ((++this->day_counter & 7) == 0) DecreaseVehicleValue(this);
+ 
++  VehicleLeasePayment(this);
++
+ 	if (this->IsFrontEngine()) {
+ 		CheckVehicleBreakdown(this);
+ 		AgeVehicle(this);
+diff --git a/src/vehicle.cpp b/src/vehicle.cpp
+index 963f3a0..60b9a4e 100644
+--- a/src/vehicle.cpp
++++ b/src/vehicle.cpp
+@@ -916,6 +916,75 @@ Vehicle *CheckClickOnVehicle(const ViewPort *vp, int x, int y)
+ 	return found;
+ }
+ 
++void LeaseVehicle(Vehicle *v)
++{
++  Date lease_term = _settings_game.vehicle.lease_term;
++  if (lease_term == 0) lease_term = 3;
++
++  Money monthly_lease = 12 * lease_term;
++
++  if (v->value > 12*lease_term) {
++    double rate = ((double)(_settings_game.vehicle.lease_interest + 100)) / 100;
++    monthly_lease = ((double)v->value*rate) / (12*lease_term);
++  }
++
++  v->leased = true;
++  v->leased_for = monthly_lease * (12 * lease_term);
++
++  v->current_lease = v->leased_for;
++  v->leased_until = _date + 365*lease_term;
++  v->monthly_lease = monthly_lease;
++
++  // Update company lease information
++  Company *lc = Company::Get(_current_company);
++  lc->current_lease += v->leased_for;
++  lc->monthly_lease += v->monthly_lease;
++  SetWindowDirty(WC_FINANCES, lc->index);
++}
++
++void ReturnLeasedVehicle(Vehicle *v)
++{
++  if(v->leased) {
++    Company *lc = Company::Get(_current_company);
++    lc->current_lease += -v->current_lease;
++    lc->monthly_lease += -v->monthly_lease;
++    SetWindowDirty(WC_FINANCES, lc->index);
++  }
++}
++
++void VehicleLeasePayment(Vehicle *v)
++{
++  if (!v->leased) return;
++
++  YearMonthDay ymd;
++  ConvertDateToYMD(_date, &ymd);
++
++  if (ymd.day != 1) return;
++
++  DEBUG(misc, 0, "Lease payment on day %d: %Ld", ymd.day, (int64)v->monthly_lease);
++
++  Company *lc = Company::Get((CompanyID)v->owner);
++  Money monthly_lease = v->monthly_lease;
++
++  if (monthly_lease > v->current_lease) {
++    monthly_lease = v->current_lease;
++  }
++
++  CommandCost payment(EXPENSES_LEASE_PAY, monthly_lease << 8);
++  SubtractMoneyFromCompanyFract(lc->index, payment);
++
++  v->current_lease += -monthly_lease;
++  lc->current_lease += -monthly_lease;
++
++  if (v->current_lease == 0) {
++    DEBUG(misc, 0, "Lease expired!");
++    v->leased = false;
++    lc->monthly_lease += -v->monthly_lease;
++  }
++
++  SetWindowDirty(WC_FINANCES, lc->index);
++}
++
+ void DecreaseVehicleValue(Vehicle *v)
+ {
+ 	v->value -= v->value >> 8;
+diff --git a/src/vehicle_base.h b/src/vehicle_base.h
+index f12eb16..8e9dfc1 100644
+--- a/src/vehicle_base.h
++++ b/src/vehicle_base.h
+@@ -91,6 +91,12 @@ public:
+ 	Money profit_this_year;        ///< Profit this year << 8, low 8 bits are fract
+ 	Money profit_last_year;        ///< Profit last year << 8, low 8 bits are fract
+ 	Money value;                   ///< Value of the vehicle
++  
++  bool leased;
++  Money leased_for;
++  Money current_lease;
++  Money monthly_lease;
++  Date  leased_until;
+ 
+ 	CargoPayment *cargo_payment;   ///< The cargo payment we're currently in
+ 
+diff --git a/src/vehicle_func.h b/src/vehicle_func.h
+index a0b976e..a9006f7 100644
+--- a/src/vehicle_func.h
++++ b/src/vehicle_func.h
+@@ -49,6 +49,9 @@ void ViewportAddVehicles(DrawPixelInfo *dpi);
+ void ShowNewGrfVehicleError(EngineID engine, StringID part1, StringID part2, GRFBugs bug_type, bool critical);
+ CommandCost TunnelBridgeIsFree(TileIndex tile, TileIndex endtile, const Vehicle *ignore = NULL);
+ 
++void ReturnLeasedVehicle(Vehicle *v);
++void LeaseVehicle(Vehicle *v);
++void VehicleLeasePayment(Vehicle *v);
+ void DecreaseVehicleValue(Vehicle *v);
+ void CheckVehicleBreakdown(Vehicle *v);
+ void AgeVehicle(Vehicle *v);
+diff --git a/src/vehicle_type.h b/src/vehicle_type.h
+index 7e28df1..38c3a4a 100644
+--- a/src/vehicle_type.h
++++ b/src/vehicle_type.h
+@@ -64,6 +64,12 @@ enum DepotCommand {
+ 	DEPOT_COMMAND_MASK  = 0xF,
+ };
+ 
++enum BuildCommand {
++  BUILD_BUY           = (1 << 0), ///< Buy the vehicle
++  BUILD_LEASE         = (1 << 1), ///< Lease the vehicle
++  BUILD_COMMAND_MASK  = 0xF,
++};
++
+ static const uint MAX_LENGTH_VEHICLE_NAME_BYTES  =  31; ///< The maximum length of a vehicle name in bytes including '\0'
+ static const uint MAX_LENGTH_VEHICLE_NAME_PIXELS = 150; ///< The maximum length of a vehicle name in pixels
+ 

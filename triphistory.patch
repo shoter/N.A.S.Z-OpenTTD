@@ -1,0 +1,784 @@
+Index: source.list
+===================================================================
+--- source.list	(revision 27210)
++++ source.list	(working copy)
+
+@@ -376,6 +378,7 @@
+ transparency.h
+ transparency_gui.h
+ transport_type.h
++triphistory.h
+ tunnelbridge.h
+ vehicle_base.h
+ vehicle_func.h
+@@ -500,6 +503,7 @@
+ train_gui.cpp
+ transparency_gui.cpp
+ tree_gui.cpp
++triphistory_gui.cpp
+ vehicle_gui.cpp
+ viewport_gui.cpp
+ waypoint_gui.cpp
+@@ -585,6 +590,7 @@
+ town_cmd.cpp
+ train_cmd.cpp
+ tree_cmd.cpp
++triphistory_cmd.cpp
+ tunnelbridge_cmd.cpp
+ vehicle_cmd.cpp
+ void_cmd.cpp
+Index: src/economy.cpp
+===================================================================
+--- src/economy.cpp	(revision 27210)
++++ src/economy.cpp	(working copy)
+@@ -40,6 +40,7 @@
+ #include "subsidy_func.h"
+ #include "station_base.h"
+ #include "waypoint_base.h"
++#include "triphistory.h"
+ #include "economy_base.h"
+ #include "core/pool_func.hpp"
+ #include "core/backup_type.hpp"
+@@ -1151,6 +1152,11 @@
+ 
+ 	this->front->cargo_payment = NULL;
+ 
++	Station *st_last = Station::GetIfValid(this->front->last_loading_station);
++	Station *st_curr = Station::GetIfValid(this->current_station);
++	this->front->trip_history.AddValue(this->route_profit, _date, this->front->trip_occupancy, st_last != NULL && st_curr != NULL ? DistanceManhattan(st_last->xy, st_curr->xy) : 0);
++	InvalidateWindowData(WC_VEHICLE_TRIP_HISTORY, this->front->index);
++
+ 	if (this->visual_profit == 0 && this->visual_transfer == 0) return;
+ 
+ 	Backup<CompanyByte> cur_company(_current_company, this->front->owner, FILE_LINE);
+Index: src/lang/english.txt
+===================================================================
+--- src/lang/english.txt	(revision 27210)
++++ src/lang/english.txt	(working copy)
+@@ -4015,6 +4040,34 @@
+ STR_AI_LIST_VERSION                                             :{LTBLUE}Version: {ORANGE}{NUM}
+ STR_AI_LIST_URL                                                 :{LTBLUE}URL: {ORANGE}{RAW_STRING}
+ 
++######## Trip History
++STR_TRIP_HISTORY                                                :{BLACK}History
++STR_TRIP_HISTORY_TOOLTIP                                        :{BLACK}Shows the history of the last 10 trips
++STR_TRIP_HISTORY_RECEIVED_LABEL                                 :{BLACK}Received
++STR_TRIP_HISTORY_RECEIVED_LABEL_TIP                             :{BLACK}The date when the cargo was received
++STR_TRIP_HISTORY_PROFIT_LABEL                                   :{BLACK}Profit
++STR_TRIP_HISTORY_PROFIT_LABEL_TIP                               :{BLACK}The profit received from each trip
++STR_TRIP_HISTORY_PERCHANGE_LABEL                                :{BLACK}% Change
++STR_TRIP_HISTORY_PERCHANGE_LABEL_TIP                            :{BLACK}Percentage change between the current and last trips profit
++STR_TRIP_HISTORY_TBT_LABEL                                      :{BLACK}TBT
++STR_TRIP_HISTORY_TBT_LABEL_TIP                                  :{BLACK}Time taken between the current and last trip
++STR_TRIP_HISTORY_DAYCHANGE_LABEL                                :{BLACK}Change
++STR_TRIP_HISTORY_DAYCHANGE_LABEL_TIP                            :{BLACK}Change (in days) between the current and last trips length
++STR_TRIP_HISTORY_OCCUPANCY_LABEL                                :{BLACK}Occupancy
++STR_TRIP_HISTORY_OCCUPANCY_LABEL_TIP                            :{BLACK}Average occupancy (in percent) during the trip
++STR_TRIP_HISTORY_TOTALINCOME                                    :{BLACK}Total income for the last {NUM} trip{P "" s}:{LTBLUE} {CURRENCY_SHORT} {BLACK}({LTBLUE}{CURRENCY_SHORT} {BLACK} per day)
++STR_TRIP_HISTORY_DAYAVERAGE                                     :{BLACK}Average trip length:{LTBLUE} {NUM} day{P "" s}
++STR_TRIP_HISTORY_DAYAVERAGE_IMPROVEMENT                         :{BLACK}Improvement over last {NUM} trip{P "" s}:{LTBLUE} {NUM}%
++STR_TRIP_HISTORY_CAPTION                                        :{WHITE}{VEHICLE} Trip History
++STR_TRIP_HISTORY_DATE                                           :{BLACK}{DATE_LONG}
++STR_TRIP_HISTORY_PROFIT                                         :{BLACK}{CURRENCY_SHORT}
++STR_TRIP_HISTORY_VIRTUAL_PROFIT                                 :{YELLOW}{CURRENCY_SHORT}
++STR_TRIP_HISTORY_PROFITCHANGEPOS                                :{GREEN}+{NUM}%
++STR_TRIP_HISTORY_PROFITCHANGENEG                                :{RED}{NUM}%
++STR_TRIP_HISTORY_TBT                                            :{BLACK}{NUM} day{P "" s}
++STR_TRIP_HISTORY_TBTCHANGEPOS                                   :{RED}+{NUM}
++STR_TRIP_HISTORY_TBTCHANGENEG                                   :{GREEN}{NUM}
++STR_TRIP_HISTORY_OCCUPANCY                                      :{BLACK}{NUM}%
+ STR_AI_LIST_ACCEPT                                              :{BLACK}Accept
+ STR_AI_LIST_ACCEPT_TOOLTIP                                      :{BLACK}Select highlighted script
+ STR_AI_LIST_CANCEL                                              :{BLACK}Cancel
+Index: src/order_cmd.cpp
+===================================================================
+--- src/order_cmd.cpp	(revision 27210)
++++ src/order_cmd.cpp	(working copy)
+@@ -257,11 +257,13 @@
+ 		/* Calls SetDirty() too */
+ 		InvalidateWindowData(WC_VEHICLE_ORDERS,    v->index, data);
+ 		InvalidateWindowData(WC_VEHICLE_TIMETABLE, v->index, data);
++		InvalidateWindowData(WC_VEHICLE_TRIP_HISTORY, v->index, data);
+ 		return;
+ 	}
+ 
+ 	SetWindowDirty(WC_VEHICLE_ORDERS,    v->index);
+ 	SetWindowDirty(WC_VEHICLE_TIMETABLE, v->index);
++	SetWindowDirty(WC_VEHICLE_TRIP_HISTORY, v->index);
+ }
+ 
+ /**
+Index: src/saveload/saveload.cpp
+===================================================================
+--- src/saveload/saveload.cpp	(revision 27210)
++++ src/saveload/saveload.cpp	(working copy)
+@@ -260,10 +260,12 @@
+  *  190   26547
+  *  191   26646
+  *  192   26700
+  *  193   26802
+  *  194   26881   1.5.x
++ *
++ *  250   TripHistory
+  */
+-extern const uint16 SAVEGAME_VERSION = 194; ///< Current savegame version of OpenTTD.
++extern const uint16 SAVEGAME_VERSION = 250; ///< Current savegame version of OpenTTD.
+ 
+ SavegameType _savegame_type; ///< type of savegame we are loading
+ 
+Index: src/saveload/saveload.h
+===================================================================
+--- src/saveload/saveload.h	(revision 27210)
++++ src/saveload/saveload.h	(working copy)
+@@ -89,6 +89,8 @@
+ 
+ /** Highest possible savegame version. */
+ #define SL_MAX_VERSION UINT16_MAX
++#define SL_TRIP 250
+ 
+ /** Flags of a chunk. */
+ enum ChunkType {
+@@ -549,4 +551,4 @@
+ extern char _savegame_format[8];
+ extern bool _do_autosave;
+ 
+-#endif /* SAVELOAD_H */
++#endif /* SAVELOAD_H */
+\ No newline at end of file
+Index: src/saveload/vehicle_sl.cpp
+===================================================================
+--- src/saveload/vehicle_sl.cpp	(revision 27210)
++++ src/saveload/vehicle_sl.cpp	(working copy)
+@@ -375,6 +375,8 @@
+ 	FOR_ALL_VEHICLES(v) {
+ 		assert(v->first != NULL);
+ 
++	  v->trip_occupancy = CalcPercentVehicleFilled(v, NULL);
++
+ 		switch (v->type) {
+ 			case VEH_TRAIN: {
+ 				Train *t = Train::From(v);
+@@ -703,6 +707,37 @@
+ 
+ 		SLE_CONDNULL(10,                                                           2, 143), // old reserved space
+ 
++		// Trip History Arrays
++		SLE_CONDVAR(Vehicle, trip_history.t[0].profit,     SLE_INT64,     SL_TRIP, SL_MAX_VERSION),
++		SLE_CONDVAR(Vehicle, trip_history.t[1].profit,     SLE_INT64,     SL_TRIP, SL_MAX_VERSION),
++		SLE_CONDVAR(Vehicle, trip_history.t[2].profit,     SLE_INT64,     SL_TRIP, SL_MAX_VERSION),
++		SLE_CONDVAR(Vehicle, trip_history.t[3].profit,     SLE_INT64,     SL_TRIP, SL_MAX_VERSION),
++		SLE_CONDVAR(Vehicle, trip_history.t[4].profit,     SLE_INT64,     SL_TRIP, SL_MAX_VERSION),
++		SLE_CONDVAR(Vehicle, trip_history.t[5].profit,     SLE_INT64,     SL_TRIP, SL_MAX_VERSION),
++		SLE_CONDVAR(Vehicle, trip_history.t[6].profit,     SLE_INT64,     SL_TRIP, SL_MAX_VERSION),
++		SLE_CONDVAR(Vehicle, trip_history.t[7].profit,     SLE_INT64,     SL_TRIP, SL_MAX_VERSION),
++		SLE_CONDVAR(Vehicle, trip_history.t[8].profit,     SLE_INT64,     SL_TRIP, SL_MAX_VERSION),
++		SLE_CONDVAR(Vehicle, trip_history.t[9].profit,     SLE_INT64,     SL_TRIP, SL_MAX_VERSION),
++		SLE_CONDVAR(Vehicle, trip_history.t[0].date,       SLE_INT32,     SL_TRIP, SL_MAX_VERSION),
++		SLE_CONDVAR(Vehicle, trip_history.t[1].date,       SLE_INT32,     SL_TRIP, SL_MAX_VERSION),
++		SLE_CONDVAR(Vehicle, trip_history.t[2].date,       SLE_INT32,     SL_TRIP, SL_MAX_VERSION),
++		SLE_CONDVAR(Vehicle, trip_history.t[3].date,       SLE_INT32,     SL_TRIP, SL_MAX_VERSION),
++		SLE_CONDVAR(Vehicle, trip_history.t[4].date,       SLE_INT32,     SL_TRIP, SL_MAX_VERSION),
++		SLE_CONDVAR(Vehicle, trip_history.t[5].date,       SLE_INT32,     SL_TRIP, SL_MAX_VERSION),
++		SLE_CONDVAR(Vehicle, trip_history.t[6].date,       SLE_INT32,     SL_TRIP, SL_MAX_VERSION),
++		SLE_CONDVAR(Vehicle, trip_history.t[7].date,       SLE_INT32,     SL_TRIP, SL_MAX_VERSION),
++		SLE_CONDVAR(Vehicle, trip_history.t[8].date,       SLE_INT32,     SL_TRIP, SL_MAX_VERSION),
++		SLE_CONDVAR(Vehicle, trip_history.t[9].date,       SLE_INT32,     SL_TRIP, SL_MAX_VERSION),
+		SLE_CONDVAR(Vehicle, trip_history.t[0].occupancy,  SLE_INT8,      SL_TRIP, SL_MAX_VERSION),
+		SLE_CONDVAR(Vehicle, trip_history.t[1].occupancy,  SLE_INT8,      SL_TRIP, SL_MAX_VERSION),
+		SLE_CONDVAR(Vehicle, trip_history.t[2].occupancy,  SLE_INT8,      SL_TRIP, SL_MAX_VERSION),
+		SLE_CONDVAR(Vehicle, trip_history.t[3].occupancy,  SLE_INT8,      SL_TRIP, SL_MAX_VERSION),
+		SLE_CONDVAR(Vehicle, trip_history.t[4].occupancy,  SLE_INT8,      SL_TRIP, SL_MAX_VERSION),
+		SLE_CONDVAR(Vehicle, trip_history.t[5].occupancy,  SLE_INT8,      SL_TRIP, SL_MAX_VERSION),
+		SLE_CONDVAR(Vehicle, trip_history.t[6].occupancy,  SLE_INT8,      SL_TRIP, SL_MAX_VERSION),
+		SLE_CONDVAR(Vehicle, trip_history.t[7].occupancy,  SLE_INT8,      SL_TRIP, SL_MAX_VERSION),
+		SLE_CONDVAR(Vehicle, trip_history.t[8].occupancy,  SLE_INT8,      SL_TRIP, SL_MAX_VERSION),
+		SLE_CONDVAR(Vehicle, trip_history.t[9].occupancy,  SLE_INT8,      SL_TRIP, SL_MAX_VERSION),
+ 		     SLE_END()
+ 	};
+ 
+Index: src/timetable_cmd.cpp
+===================================================================
+--- src/timetable_cmd.cpp	(revision 27210)
++++ src/timetable_cmd.cpp	(working copy)
+@@ -377,6 +377,7 @@
+ 
+ 	/* This vehicle is arriving at the first destination in the timetable. */
+ 	if (v->cur_real_order_index == first_manual_order && travelling) {
++		v->trip_history.NewRound();
+ 		/* If the start date hasn't been set, or it was set automatically when
+ 		 * the vehicle last arrived at the first destination, update it to the
+ 		 * current time. Otherwise set the late counter appropriately to when
+Index: src/triphistory.h
+===================================================================
+--- src/triphistory.h	(revision 0)
++++ src/triphistory.h	(working copy)
+@@ -0,0 +1,80 @@
++/** @file triphistory.h */
++
++#ifndef TRIPHISTORY_H
++#define TRIPHISTORY_H
++
++#include <deque>
++#include "window_gui.h"
++#include "strings_type.h"
++#include "economy_type.h"
++#include "date_type.h"
++
++// entries to save
++#define TRIP_LENGTH 10
++
++static inline int TripHistoryRound( float x ) 
++{
++	return int( x > 0.0 ? x + 0.5 : x - 0.5 );
++}
++
++struct TripHistoryEntry {
++	Money profit; // Saved
++	Date date; // Saved
++	int32 profit_change; // Calculated
++	Date TBT; // Calculated
++	int32 TBT_change; // Calculated
++	int8 occupancy; // Calculated
++
++	TripHistoryEntry( ) : profit( 0 ), date( 0 ), profit_change( 0 ), TBT( 0 ), TBT_change( 0 ), occupancy( -1 ) { };
++};
++
++/** Structure to hold data for each vehicle */
++struct TripHistory {
++	// a lot of saveload stuff for std::deque. So...
++	TripHistoryEntry t[ TRIP_LENGTH ];
++
++	Money total_profit; 
++	int32 avg_daylength; 
++	int32 total_change;
++	Money profit_per_day;
++	uint32 trip_length;
++	uint32 occupancy_sum;
++
++	TripHistory( ) :
++		total_profit( 0 ),
++		avg_daylength( 0 ),
++		total_change( 0 ),
++		profit_per_day( 0 ),
++		occupancy_sum( 0 ),
++		trip_length( 0 ) { }
++
++	void NewRound();
++
++	void AddValue( Money mvalue, Date dvalue, int8 occupancy, uint32 distance );
++
++
++	/**
++	 * Init info for GUI
++	 *
++	 * @return size_t number of valid rows
++	 */
++	size_t UpdateCalculated( );
++
++	int32 FindPercentChange( Money v1, Money v2 ) {
++		float temp;
++
++		if ( v1 > v2 ) {
++			temp = v1 - v2;
++			return TripHistoryRound( ( float ) temp * 100 / ( float ) v1 );
++		}
++
++		if ( v2 > v1 ) {
++			temp = v1 - v2;
++			return TripHistoryRound( ( float ) temp * 100 / ( float ) v2 );
++		}
++
++		return 0;
++	}
++};
++
++#endif /* TRIPHISTORY_H */
+Index: src/triphistory_cmd.cpp
+===================================================================
+--- src/triphistory_cmd.cpp	(revision 0)
++++ src/triphistory_cmd.cpp	(working copy)
+@@ -0,0 +1,106 @@
++/** @file triphistory_cmd.cpp */
++
++#include "stdafx.h"
++#include "triphistory.h"
++#include "table/strings.h"
++
++void
++TripHistory::AddValue( Money mvalue, Date dvalue, int8 occupancy, uint32 distance ) {
++	this->occupancy_sum += distance * occupancy;
++	this->trip_length += distance;
++	if ( 0 < dvalue ) {
++		t[ 0 ].profit += mvalue;
++		t[ 0 ].date = dvalue;
++		t[ 0 ].occupancy = this->trip_length > 0 ? this->occupancy_sum / this->trip_length : 0;
++	}
++}
++
++void
++TripHistory::NewRound( ) {
++	//move down
++	for ( int i = TRIP_LENGTH - 1; i > 0; i-- ) {
++		this->t[ i ] = this->t[ i - 1 ];
++		//this->trip_history_date_array[ i ] = this->trip_history_date_array[ i - 1 ];
++	}
++
++	this->t[ 0 ].profit = 0;
++	this->t[ 0 ].date = this->t[ 1 ].date;
++
++	this->occupancy_sum = 0;
++	this->trip_length = 0;
++
++	//t.push_front( TripHistoryEntry( ) );
++}
++
++size_t
++TripHistory::UpdateCalculated( ) {
++
++	this->total_profit = 0;
++	this->total_change = 0;
++	this->avg_daylength = 0;
++	this->profit_per_day = 0;
++	uint i = 0;
++
++	//
++	while ( i < TRIP_LENGTH && t [ i ].date ) {
++		
++		if ( i > 0 ) {
++			t[ i - 1 ].profit_change =
++				FindPercentChange( t [ i - 1 ].profit, t[ i ].profit );
++			t[ i - 1 ].TBT = t[ i - 1 ].date - t[ i ].date;
++
++			if ( i > 1 ) t[ i - 2 ].TBT_change = t[ i - 2 ].TBT - t[ i - 1 ].TBT;//bad line i don't like it
++
++			//omit first -100% row
++			if ( i > 1 || t [ 0 ].profit_change != -100 )
++				this->total_change += t[ i - 1 ].profit_change;
++			this->avg_daylength += t[ i - 1 ].TBT;
++		}
++
++		// prepare summary
++		
++
++		this->total_profit += t[ i ].profit;
++		i++;
++	}
++
++	if ( i == 0 ) return 0 ;
++	
++	this->avg_daylength /= --i + 1;
++
++	if ( t[ 0 ].date != t[ i ].date ) {
++		this->profit_per_day = total_profit / ( t[ 0 ].date - t[ i ].date );
++	}
++
++	return i;
++	/*
++	Trips::reverse_iterator i = t.rbegin( );
++	while ( i < t.rend( ) ) {
++
++		if ( i + 1 != t.rend( ) ) {
++			(*( i + 1 )).profit_change =
++				FindPercentChange( ( *i ).profit, ( *( i + 1 ) ).profit ); // reverse_itenrator
++
++			( *( i + 1 ) ).TBT = ( *i ).date - ( *( i + 1 ) ).date;
++
++			if ( ( *i ).TBT ) ( *( i + 1 ) ).TBT_change = ( *i ).TBT - ( *( i + 1 ) ).TBT;
++
++			//omit first -100% row
++			this->total_change += ( *i ).profit_change;
++		}
++
++		// prepare summary
++		this->total_profit += ( *i ).profit;
++		this->avg_daylength += ( *i ).TBT;
++
++		i++;
++	}
++
++	this->avg_daylength /= t.size( );
++
++	if ( t.front( ).date != t.back( ).date ) {
++		this->profit_per_day = total_profit / ( t.front( ).date - t.back( ).date );
++	}
++
++	return t.size( );*/
++}
+Index: src/triphistory_gui.cpp
+===================================================================
+--- src/triphistory_gui.cpp	(revision 0)
++++ src/triphistory_gui.cpp	(working copy)
+@@ -0,0 +1,228 @@
++/** @file triphistory_gui.cpp */
++
++#include "stdafx.h"
++#include "triphistory.h"
++#include "strings_func.h"
++#include "window_func.h"
++#include "gfx_func.h"
++#include "date_func.h"
++#include "vehicle_base.h"
++#include "table/strings.h"
++
++/* Names of the widgets. Keep them in the same order as in the widget array */
++enum VehicleTripWidgets {
++    VTH_CAPTION,
++    VTH_LABEL_RECEIVED,
++    VTH_LABEL_PROFIT,
++    VTH_LABEL_PERCHANGE,
++    VTH_LABEL_TBT,
++    VTH_LABEL_DAYCHANGE,
++    VTH_LABEL_OCCUPANY,
++    VTH_MATRIX_RECEIVED,
++    VTH_MATRIX_PROFIT,
++    VTH_MATRIX_PERCHANGE,
++    VTH_MATRIX_TBT,
++    VTH_MATRIX_DAYCHANGE,
++    VTH_MATRIX_OCCUPANCY,
++    VTH_SUMMARY,
++
++};
++static const NWidgetPart _vehicle_trip_history_widgets[] = {
++    	NWidget(NWID_HORIZONTAL),
++		NWidget(WWT_CLOSEBOX, COLOUR_GREY),
++		NWidget(WWT_CAPTION, COLOUR_GREY, VTH_CAPTION), SetDataTip(STR_TRIP_HISTORY_CAPTION, STR_TOOLTIP_WINDOW_TITLE_DRAG_THIS),
++		NWidget(WWT_SHADEBOX, COLOUR_GREY),
++		NWidget(WWT_STICKYBOX, COLOUR_GREY),
++	EndContainer(),
++	NWidget(NWID_HORIZONTAL),
++		NWidget(WWT_TEXTBTN, COLOUR_GREY, VTH_LABEL_RECEIVED),	SetMinimalSize(110, 0), SetMinimalTextLines(1, 2), SetResize(1, 0), SetFill(1, 0),
++			SetDataTip(STR_TRIP_HISTORY_RECEIVED_LABEL, STR_TRIP_HISTORY_RECEIVED_LABEL_TIP),
++		NWidget(WWT_TEXTBTN, COLOUR_GREY, VTH_LABEL_PROFIT),	SetMinimalSize(110, 0), SetMinimalTextLines(1, 2), SetResize(1, 0), SetFill(1, 0),
++			SetDataTip(STR_TRIP_HISTORY_PROFIT_LABEL,       STR_TRIP_HISTORY_PROFIT_LABEL_TIP),
++		NWidget(WWT_TEXTBTN, COLOUR_GREY, VTH_LABEL_PERCHANGE), SetMinimalSize(50, 0), SetMinimalTextLines(1, 2), SetResize(1, 0),SetFill(1, 0),
++			SetDataTip(STR_TRIP_HISTORY_DAYCHANGE_LABEL,    STR_TRIP_HISTORY_PERCHANGE_LABEL_TIP),
++		NWidget(WWT_TEXTBTN, COLOUR_GREY, VTH_LABEL_TBT),	SetMinimalSize(70, 0), SetMinimalTextLines(1, 2), SetResize(1, 0),SetFill(1, 0),
++			SetDataTip(STR_TRIP_HISTORY_TBT_LABEL,          STR_TRIP_HISTORY_TBT_LABEL_TIP),
++		NWidget(WWT_TEXTBTN, COLOUR_GREY, VTH_LABEL_DAYCHANGE), SetMinimalSize(50, 0), SetMinimalTextLines(1, 2), SetResize(1, 0),SetFill(1, 0),
++			SetDataTip(STR_TRIP_HISTORY_DAYCHANGE_LABEL,    STR_TRIP_HISTORY_DAYCHANGE_LABEL_TIP),
++		NWidget(WWT_TEXTBTN, COLOUR_GREY, VTH_LABEL_OCCUPANY), SetMinimalSize(65, 0), SetMinimalTextLines(1, 2), SetResize(1, 0),SetFill(1, 0),
++			SetDataTip(STR_TRIP_HISTORY_OCCUPANCY_LABEL,    STR_TRIP_HISTORY_OCCUPANCY_LABEL_TIP),
++	EndContainer(),
++	NWidget(NWID_HORIZONTAL),
++		NWidget(WWT_MATRIX, COLOUR_GREY, VTH_MATRIX_RECEIVED),	SetMinimalSize(110, 0), SetDataTip((10 << MAT_ROW_START) | (1 << MAT_COL_START), STR_NULL), SetResize(1, 1),SetFill(1, 0),
++		NWidget(WWT_MATRIX, COLOUR_GREY, VTH_MATRIX_PROFIT),	SetMinimalSize(110, 0), SetDataTip((10 << MAT_ROW_START) | (1 << MAT_COL_START), STR_NULL), SetResize(1, 1),SetFill(1, 0),
++		NWidget(WWT_MATRIX, COLOUR_GREY, VTH_MATRIX_PERCHANGE), SetMinimalSize(50, 0), SetDataTip((10 << MAT_ROW_START) | (1 << MAT_COL_START), STR_NULL), SetResize(1, 1),SetFill(1, 0),
++		NWidget(WWT_MATRIX, COLOUR_GREY, VTH_MATRIX_TBT),	SetMinimalSize(70, 0), SetDataTip((10 << MAT_ROW_START) | (1 << MAT_COL_START), STR_NULL), SetResize(1, 1),SetFill(1, 0),
++		NWidget(WWT_MATRIX, COLOUR_GREY, VTH_MATRIX_DAYCHANGE), SetMinimalSize(50, 0), SetDataTip((10 << MAT_ROW_START) | (1 << MAT_COL_START), STR_NULL), SetResize(1, 1),SetFill(1, 0),
++		NWidget(WWT_MATRIX, COLOUR_GREY, VTH_MATRIX_OCCUPANCY), SetMinimalSize(65, 0), SetDataTip((10 << MAT_ROW_START) | (1 << MAT_COL_START), STR_NULL), SetResize(1, 1),SetFill(1, 0),
++	EndContainer(),
++	NWidget(WWT_PANEL, COLOUR_GREY, VTH_SUMMARY), SetMinimalTextLines(3, 2), SetResize(1, 0), SetFill(1, 0), EndContainer(),
++};
++
++struct VehicleTripHistoryWindow : Window {
++
++private:
++	uint8 valid_rows; // number of rows in trip history
++public:
++	VehicleTripHistoryWindow(WindowDesc *desc, WindowNumber window_number) :
++		Window(desc), valid_rows( 0 )
++	{
++		const Vehicle *v = Vehicle::Get(window_number);
++		this->CreateNestedTree();
++		
++		this->FinishInitNested(window_number);
++		this->owner = v->owner;
++		InvalidateData();
++	}
++/*
++	~VehicleTripHistoryWindow() {
++		if (Vehicle::IsValidID(this->window_number)) {
++			Vehicle *v = Vehicle::Get(this->window_number);
++			free(v->trip_history_pchange_array);
++			free(v->trip_history_TBT_array);
++			free(v->trip_history_TBT_change_array);
++			v->trip_history_avg_daylength = 0;
++			v->trip_history_profitpd = 0;
++			v->trip_history_total_change = 0;
++			v->trip_history_total_profit = 0;
++		}
++	}*/
++
++	virtual void OnInvalidateData(int data = 0, bool gui_scope = true) {
++		Vehicle *v = Vehicle::Get(this->window_number);
++		valid_rows = v->trip_history.UpdateCalculated();
++		this->SetDirty();
++	}
++
++	virtual void SetStringParameters(int widget) const
++	{
++		switch (widget) {
++			case VTH_CAPTION: SetDParam(0, this->window_number); break;
++		}
++	}
++
++	virtual void UpdateWidgetSize(int widget, Dimension *size, const Dimension &padding, Dimension *fill, Dimension *resize)
++	{
++		switch (widget) {
++			case VTH_SUMMARY: {
++				SetDParam(0, UINT64_MAX >> 2);
++				SetDParam(1, 100);
++				Dimension text_dim = GetStringBoundingBox(STR_TRIP_HISTORY_TOTALINCOME);
++				size->width = text_dim.width + WD_FRAMERECT_LEFT + WD_FRAMERECT_RIGHT;
++				break;
++			}
++
++			case VTH_LABEL_RECEIVED:
++			case VTH_MATRIX_RECEIVED: {
++				SetDParam(0, _date);
++				Dimension text_dim = GetStringBoundingBox(STR_TRIP_HISTORY_DATE);
++				size->width = text_dim.width + WD_MATRIX_LEFT + WD_MATRIX_RIGHT;
++				break;
++			}
++			case VTH_MATRIX_PROFIT:
++			case VTH_MATRIX_PERCHANGE:
++			case VTH_MATRIX_TBT:
++			case VTH_MATRIX_DAYCHANGE:
++			case VTH_MATRIX_OCCUPANCY:
++				resize->height = FONT_HEIGHT_NORMAL + WD_MATRIX_TOP + WD_MATRIX_BOTTOM;
++				size->height = 10 * resize->height;
++				break;
++		}
++	}
++	virtual void DrawWidget(const Rect &r, int widget) const {
++	    	const Vehicle *v = Vehicle::Get(this->window_number);
++		int y = WD_FRAMERECT_TOP;
++		
++		switch( widget ) {
++		    case VTH_MATRIX_RECEIVED:
++			    for(int i = 0; i <= valid_rows; i++, y += FONT_HEIGHT_NORMAL + WD_MATRIX_TOP + WD_MATRIX_BOTTOM) {
++				    if (v->trip_history.t[i].date > 0) {
++					    SetDParam(0, v->trip_history.t[i].date);
++					    DrawString(r.left + WD_MATRIX_LEFT, r.right - WD_MATRIX_RIGHT, r.top + y, STR_TRIP_HISTORY_DATE, TC_BLACK, SA_RIGHT);
++				    }
++			    }
++			    break;
++		    case VTH_MATRIX_PROFIT:
++			    for(int i = 0; i <= valid_rows; i++, y += FONT_HEIGHT_NORMAL + WD_MATRIX_TOP + WD_MATRIX_BOTTOM) {
++				    if (v->trip_history.t[i].date > 0) {
++					    if ( v->trip_history.t[i].profit > 0 ) {
++						    SetDParam(0, v->trip_history.t[i].profit );
++						    DrawString(r.left + WD_MATRIX_LEFT, r.right - WD_MATRIX_RIGHT, r.top + y, STR_TRIP_HISTORY_PROFIT, TC_BLACK, SA_RIGHT);
++					    } else {
++						    SetDParam(0, -v->trip_history.t[i].profit);
++						    DrawString(r.left + WD_MATRIX_LEFT, r.right - WD_MATRIX_RIGHT, r.top + y, STR_TRIP_HISTORY_VIRTUAL_PROFIT, TC_BLACK, SA_RIGHT);
++					    }
++				    }
++			    }
++			    break;
++		    case VTH_MATRIX_PERCHANGE:
++			    for(int i = 0; i <= valid_rows; i++, y += FONT_HEIGHT_NORMAL + WD_MATRIX_TOP + WD_MATRIX_BOTTOM) {
++				    if (v->trip_history.t[i+1].date > 0) {
++					    SetDParam(0, v->trip_history.t[i].profit_change);
++					    DrawString(r.left + WD_MATRIX_LEFT, r.right - WD_MATRIX_RIGHT, r.top + y,
++						    v->trip_history.t[i].profit_change >= 0 ?
++							    STR_TRIP_HISTORY_PROFITCHANGEPOS :
++							    STR_TRIP_HISTORY_PROFITCHANGENEG, TC_BLACK, SA_RIGHT
++					    );
++				    }
++			    }
++			    break;
++		    case VTH_MATRIX_TBT:
++			    for(int i = 0; i <= valid_rows; i++, y += FONT_HEIGHT_NORMAL + WD_MATRIX_TOP + WD_MATRIX_BOTTOM) {
++				    if (v->trip_history.t[i].date > 0) {
++					    SetDParam(0, v->trip_history.t[i].TBT);
++					    DrawString(r.left + WD_MATRIX_LEFT, r.right - WD_MATRIX_RIGHT, r.top + y, STR_TRIP_HISTORY_TBT, TC_BLACK, SA_RIGHT);
++				    }
++			    }
++			    break;
++		    case VTH_MATRIX_DAYCHANGE:
++			    for(int i = 0; i <= valid_rows; i++, y += FONT_HEIGHT_NORMAL + WD_MATRIX_TOP + WD_MATRIX_BOTTOM) {
++				    if (v->trip_history.t[i+1].date > 0) {
++					    SetDParam(0, v->trip_history.t[i].TBT_change);
++					    DrawString(r.left + WD_MATRIX_LEFT, r.right - WD_MATRIX_RIGHT, r.top + y,
++						    v->trip_history.t[i].TBT_change > 0 ?
++							    STR_TRIP_HISTORY_TBTCHANGEPOS :
++							    STR_TRIP_HISTORY_TBTCHANGENEG, TC_BLACK, SA_RIGHT
++					    );
++				    }
++			    }
++			    break;
++		    case VTH_MATRIX_OCCUPANCY:
++			    for(int i = 0; i <= valid_rows; i++, y += FONT_HEIGHT_NORMAL + WD_MATRIX_TOP + WD_MATRIX_BOTTOM) {
++				    if (v->trip_history.t[i+1].date > 0 && v->trip_history.t[i].occupancy >= 0) {
++					    SetDParam(0, v->trip_history.t[i].occupancy);
++					    DrawString(r.left + WD_MATRIX_LEFT, r.right - WD_MATRIX_RIGHT, r.top + y,
++						    STR_TRIP_HISTORY_OCCUPANCY, TC_BLACK, SA_RIGHT
++					    );
++				    }
++			    }
++			    break;
++		    case VTH_SUMMARY:
++			    SetDParam(0, valid_rows + 1);
++			    SetDParam(1, v->trip_history.total_profit);
++			    SetDParam(2, v->trip_history.profit_per_day);
++			    DrawString(r.left + WD_FRAMERECT_LEFT, r.right - WD_FRAMERECT_RIGHT, r.top + WD_FRAMERECT_TOP, STR_TRIP_HISTORY_TOTALINCOME, TC_BLACK);
++			    SetDParam(0, v->trip_history.avg_daylength);
++			    DrawString(r.left + WD_FRAMERECT_LEFT, r.right - WD_FRAMERECT_RIGHT, r.top + FONT_HEIGHT_NORMAL + WD_FRAMERECT_TOP, STR_TRIP_HISTORY_DAYAVERAGE, TC_BLACK);
++			    SetDParam(0, valid_rows + 1);
++			    SetDParam(1, v->trip_history.total_change);
++			    DrawString(r.left + WD_FRAMERECT_LEFT, r.right - WD_FRAMERECT_RIGHT, r.top + 2*FONT_HEIGHT_NORMAL + WD_FRAMERECT_TOP, STR_TRIP_HISTORY_DAYAVERAGE_IMPROVEMENT, TC_BLACK);
++			    break;
++		}
++	}
++};
++
++static WindowDesc _vehicle_trip_history(
++	WDP_AUTO, "trip_history", 450, 191, 
++	WC_VEHICLE_TRIP_HISTORY,WC_VEHICLE_DETAILS,
++	0,
++	_vehicle_trip_history_widgets,
++	lengthof(_vehicle_trip_history_widgets)
++);
++
++void ShowTripHistoryWindow(const Vehicle *v)
++{
++	if (!BringWindowToFrontById(WC_VEHICLE_TRIP_HISTORY, v->index)) {
++		AllocateWindowDescFront<VehicleTripHistoryWindow>(&_vehicle_trip_history, v->index);
++	}
++}
+Index: src/vehicle_base.h
+===================================================================
+--- src/vehicle_base.h	(revision 27210)
++++ src/vehicle_base.h	(working copy)
+@@ -16,6 +16,7 @@
+ #include "track_type.h"
+ #include "command_type.h"
+ #include "order_base.h"
++#include "triphistory.h"
+ #include "cargopacket.h"
+ #include "texteff.hpp"
+ #include "engine_type.h"
+@@ -182,6 +183,8 @@
+ 	Money profit_last_year;             ///< Profit last year << 8, low 8 bits are fract
+ 	Money value;                        ///< Value of the vehicle
+ 
++	TripHistory trip_history;           ///< Trip History Info
++
+ 	CargoPayment *cargo_payment;        ///< The cargo payment we're currently in
+ 
+ 	Rect coord;                         ///< NOSAVE: Graphical bounding box of the vehicle, i.e. what to redraw on moves.
+@@ -250,6 +255,7 @@
+ 	uint16 refit_cap;                   ///< Capacity left over from before last refit.
+ 	VehicleCargoList cargo;             ///< The cargo this vehicle is carrying
+ 	uint16 cargo_age_counter;           ///< Ticks till cargo is aged next.
++	int8 trip_occupancy;                ///< Occupancy of vehilce of the current trip (updated after leaving a station).
+ 
+ 	byte day_counter;                   ///< Increased by one for each day
+ 	byte tick_counter;                  ///< Increased by one for each tick
+Index: src/vehicle_gui.cpp
+===================================================================
+--- src/vehicle_gui.cpp	(revision 27210)
++++ src/vehicle_gui.cpp	(working copy)
+@@ -37,6 +37,8 @@
+ #include "engine_func.h"
+ #include "station_base.h"
+ #include "tilehighlight_func.h"
++#include "triphistory.h"
+ #include "zoom_func.h"
+ 
+ #include "safeguards.h"
+@@ -1785,6 +1812,7 @@
+ 	NWidget(NWID_HORIZONTAL),
+ 		NWidget(WWT_CLOSEBOX, COLOUR_GREY),
+ 		NWidget(WWT_CAPTION, COLOUR_GREY, WID_VD_CAPTION), SetDataTip(STR_VEHICLE_DETAILS_CAPTION, STR_TOOLTIP_WINDOW_TITLE_DRAG_THIS),
++		NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, WID_VD_TRIP_HISTORY),SetMinimalSize(44, 0),SetDataTip(STR_TRIP_HISTORY, STR_TRIP_HISTORY_TOOLTIP),
+ 		NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, WID_VD_RENAME_VEHICLE), SetMinimalSize(40, 0), SetMinimalTextLines(1, WD_FRAMERECT_TOP + WD_FRAMERECT_BOTTOM + 2), SetDataTip(STR_VEHICLE_NAME_BUTTON, STR_NULL /* filled in later */),
+ 		NWidget(WWT_SHADEBOX, COLOUR_GREY),
+ 		NWidget(WWT_DEFSIZEBOX, COLOUR_GREY),
+@@ -1809,6 +1837,7 @@
+ 	NWidget(NWID_HORIZONTAL),
+ 		NWidget(WWT_CLOSEBOX, COLOUR_GREY),
+ 		NWidget(WWT_CAPTION, COLOUR_GREY, WID_VD_CAPTION), SetDataTip(STR_VEHICLE_DETAILS_CAPTION, STR_TOOLTIP_WINDOW_TITLE_DRAG_THIS),
++		NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, WID_VD_TRIP_HISTORY),SetMinimalSize(44, 0),SetDataTip(STR_TRIP_HISTORY, STR_TRIP_HISTORY_TOOLTIP),
+ 		NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, WID_VD_RENAME_VEHICLE), SetMinimalSize(40, 0), SetMinimalTextLines(1, WD_FRAMERECT_TOP + WD_FRAMERECT_BOTTOM + 2), SetDataTip(STR_VEHICLE_NAME_BUTTON, STR_NULL /* filled in later */),
+ 		NWidget(WWT_SHADEBOX, COLOUR_GREY),
+ 		NWidget(WWT_DEFSIZEBOX, COLOUR_GREY),
+@@ -2152,6 +2198,12 @@
+ 	virtual void OnClick(Point pt, int widget, int click_count)
+ 	{
+ 		switch (widget) {
++			case WID_VD_TRIP_HISTORY: {
++				const Vehicle *v = Vehicle::Get(this->window_number);
++				ShowTripHistoryWindow(v);
++				break;
++			}
++		  
+ 			case WID_VD_RENAME_VEHICLE: { // rename
+ 				const Vehicle *v = Vehicle::Get(this->window_number);
+ 				SetDParam(0, v->index);
+@@ -2501,6 +2560,7 @@
+ 		DeleteWindowById(WC_VEHICLE_REFIT, this->window_number, false);
+ 		DeleteWindowById(WC_VEHICLE_DETAILS, this->window_number, false);
+ 		DeleteWindowById(WC_VEHICLE_TIMETABLE, this->window_number, false);
++		DeleteWindowById(WC_VEHICLE_TRIP_HISTORY, this->window_number, false);
+ 	}
+ 
+ 	virtual void UpdateWidgetSize(int widget, Dimension *size, const Dimension &padding, Dimension *fill, Dimension *resize)
+@@ -2692,7 +2774,11 @@
+ 				}
+ 				break;
+ 			case WID_VV_SHOW_DETAILS: // show details
+-				ShowVehicleDetailsWindow(v);
++				if (_ctrl_pressed)  {
++				  ShowTripHistoryWindow(v);
++				} else {
++					ShowVehicleDetailsWindow(v);
++				}
+ 				break;
+ 			case WID_VV_CLONE: // clone vehicle
+ 				/* Suppress the vehicle GUI when share-cloning.
+Index: src/vehicle_gui.h
+===================================================================
+--- src/vehicle_gui.h	(revision 27210)
++++ src/vehicle_gui.h	(working copy)
+@@ -101,4 +101,6 @@
+ 
+ void DrawVehicleImage(const Vehicle *v, int left, int right, int y, VehicleID selection, EngineImageType image_type, int skip);
+ 
++void ShowTripHistoryWindow(const Vehicle *v);
++
+ #endif /* VEHICLE_GUI_H */
+Index: src/widgets/vehicle_widget.h
+===================================================================
+--- src/widgets/vehicle_widget.h	(revision 27210)
++++ src/widgets/vehicle_widget.h	(working copy)
+@@ -45,6 +45,7 @@
+ /** Widgets of the #VehicleDetailsWindow class. */
+ enum VehicleDetailsWidgets {
+ 	WID_VD_CAPTION,                     ///< Caption of window.
++	WID_VD_TRIP_HISTORY,                ///< Show the trip history of vehicle.
+ 	WID_VD_RENAME_VEHICLE,              ///< Rename this vehicle.
+ 	WID_VD_TOP_DETAILS,                 ///< Panel with generic details.
+ 	WID_VD_INCREASE_SERVICING_INTERVAL, ///< Increase the servicing interval.
+
+
+Index: src/vehicle.cpp
+===================================================================
+--- src/vehicle.cpp	(revision 27210)
++++ src/vehicle.cpp	(working copy)
+@@ -2104,6 +2319,7 @@
+ 	st->loading_vehicles.remove(this);
+ 
+ 	HideFillingPercent(&this->fill_percent_te_id);
++	trip_occupancy = CalcPercentVehicleFilled(this, NULL);
+ 
+ 	if (this->type == VEH_TRAIN && !(this->vehstatus & VS_CRASHED)) {
+ 		/* Trigger station animation (trains only) */
+Index: src/window_type.h
+===================================================================
+--- src/window_type.h	(revision 27210)
++++ src/window_type.h	(working copy)
+@@ -219,6 +219,12 @@
+ 	WC_VEHICLE_TIMETABLE,
+ 
+ 	/**
++	 * Vehicle trip history; %Window numbers:
++	 *   - #VehicleID = #VehicleTripHistoryWidgets
++	 */
++	WC_VEHICLE_TRIP_HISTORY,
++
++	/**
+ 	 * Company colour selection; %Window numbers:
+ 	 *   - #CompanyID = #SelectCompanyLiveryWidgets
+ 	 */

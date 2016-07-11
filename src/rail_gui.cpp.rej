@@ -1,0 +1,86 @@
+--- src/rail_gui.cpp	Wed Dec 24 19:31:26 2014 +0000
++++ src/rail_gui.cpp	Thu Feb 26 08:47:46 2015 +0100
+@@ -96,13 +101,20 @@
+ 	if (result.Succeeded() && _settings_client.sound.confirm) SndPlayTileFx(SND_20_SPLAT_RAIL, tile);
+ }
+ 
+-static void GenericPlaceRail(TileIndex tile, int cmd)
++static CommandContainer GenericPlaceRailCmd(TileIndex tile, Track track)
+ {
+-	DoCommandP(tile, _cur_railtype, cmd,
+-			_remove_button_clicked ?
+-			CMD_REMOVE_SINGLE_RAIL | CMD_MSG(STR_ERROR_CAN_T_REMOVE_RAILROAD_TRACK) :
+-			CMD_BUILD_SINGLE_RAIL | CMD_MSG(STR_ERROR_CAN_T_BUILD_RAILROAD_TRACK),
+-			CcPlaySound1E);
++	CommandContainer ret = {
++		tile,          // tile
++		_cur_railtype, // p1
++		track,         // p2
++		_remove_button_clicked ?
++				CMD_REMOVE_SINGLE_RAIL | CMD_MSG(STR_ERROR_CAN_T_REMOVE_RAILROAD_TRACK) :
++				CMD_BUILD_SINGLE_RAIL | CMD_MSG(STR_ERROR_CAN_T_BUILD_RAILROAD_TRACK), // cmd
++		CcPlaySound1E, // callback
++		""             // text
++	};
++
++	return ret;
+ }
+ 
+ /**
+@@ -355,25 +368,45 @@
+ 	}
+ }
+ 
+-static void DoRailroadTrack(int mode)
++static CommandContainer DoRailroadTrackCmd(TileIndex start_tile, TileIndex end_tile, Track track)
+ {
+-	DoCommandP(TileVirtXY(_thd.selstart.x, _thd.selstart.y), TileVirtXY(_thd.selend.x, _thd.selend.y), _cur_railtype | (mode << 4),
+-			_remove_button_clicked ?
+-			CMD_REMOVE_RAILROAD_TRACK | CMD_MSG(STR_ERROR_CAN_T_REMOVE_RAILROAD_TRACK) :
+-			CMD_BUILD_RAILROAD_TRACK  | CMD_MSG(STR_ERROR_CAN_T_BUILD_RAILROAD_TRACK),
+-			CcPlaySound1E);
++	CommandContainer ret = {
++		start_tile,                   // tile
++		end_tile,                     // p1
++		_cur_railtype | (track << 4), // p2
++		_remove_button_clicked ?
++				CMD_REMOVE_RAILROAD_TRACK | CMD_MSG(STR_ERROR_CAN_T_REMOVE_RAILROAD_TRACK) :
++				CMD_BUILD_RAILROAD_TRACK  | CMD_MSG(STR_ERROR_CAN_T_BUILD_RAILROAD_TRACK), // cmd
++		CcPlaySound1E,                // callback
++		""                            // text
++	};
++
++	return ret;
+ }
+ 
+ static void HandleAutodirPlacement()
+ {
+-	int trackstat = _thd.drawstyle & HT_DIR_MASK; // 0..5
++	Track track = (Track)(_thd.drawstyle & HT_DIR_MASK); // 0..5
++	TileIndex start_tile = TileVirtXY(_thd.selstart.x, _thd.selstart.y);
++	TileIndex end_tile = TileVirtXY(_thd.selend.x, _thd.selend.y);
+ 
+-	if (_thd.drawstyle & HT_RAIL) { // one tile case
+-		GenericPlaceRail(TileVirtXY(_thd.selend.x, _thd.selend.y), trackstat);
+-		return;
++	CommandContainer cmd = (_thd.drawstyle & HT_RAIL) ?
++			GenericPlaceRailCmd(end_tile, track) : // one tile case
++			DoRailroadTrackCmd(start_tile, end_tile, track); // multitile selection
++
++	/* When overbuilding existing tracks in polyline mode we just want to move the
++	 * snap point without altering the user with the "already built" error. Don't
++	 * execute the command right away, firstly check if tracks are being overbuilt. */
++	if (!(_thd.place_mode & HT_POLY) || _shift_pressed ||
++			DoCommand(&cmd, DC_AUTO | DC_NO_WATER).GetErrorMessage() != STR_ERROR_ALREADY_BUILT) {
++		/* place tracks */
++		if (!DoCommandP(&cmd)) return;
+ 	}
+ 
+-	DoRailroadTrack(trackstat);
++	/* save new snap points for the polyline tool */
++	if (!_shift_pressed && _rail_track_endtile != INVALID_TILE) {
++		StoreRailPlacementEndpoints(start_tile, _rail_track_endtile, track, true);
++	}
+ }
+ 
+ /**

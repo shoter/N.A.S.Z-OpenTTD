@@ -1,0 +1,137 @@
+Index: src/group_gui.cpp
+===================================================================
+--- src/group_gui.cpp	(revision 27210)
++++ src/group_gui.cpp	(working copy)
+@@ -55,6 +55,7 @@
+ 						SetFill(1, 0), SetResize(0, 1), SetScrollbar(WID_GL_LIST_GROUP_SCROLLBAR),
+ 				NWidget(NWID_VSCROLLBAR, COLOUR_GREY, WID_GL_LIST_GROUP_SCROLLBAR),
+ 			EndContainer(),
++			NWidget(WWT_PANEL, COLOUR_GREY, WID_GL_INFO), SetMinimalSize(200, 37), SetFill(1, 0), EndContainer(),
+ 			NWidget(NWID_HORIZONTAL),
+ 				NWidget(WWT_PUSHIMGBTN, COLOUR_GREY, WID_GL_CREATE_GROUP), SetFill(0, 1),
+ 						SetDataTip(SPR_GROUP_CREATE_TRAIN, STR_GROUP_CREATE_TOOLTIP),
+@@ -371,6 +372,9 @@
+ 				max_icon_height = max(max_icon_height, GetSpriteSize(this->GetWidget<NWidgetCore>(WID_GL_DELETE_GROUP)->widget_data).height);
+ 				max_icon_height = max(max_icon_height, GetSpriteSize(this->GetWidget<NWidgetCore>(WID_GL_REPLACE_PROTECTION)->widget_data).height);
+ 
++				/* ... minus the height of the group info ... */
++				max_icon_height += 37;
++				
+ 				/* Get a multiple of tiny_step_height of that amount */
+ 				size->height = Ceil(size->height - max_icon_height, tiny_step_height);
+ 				break;
+@@ -527,6 +531,40 @@
+ 				DrawGroupInfo(r.top + WD_FRAMERECT_TOP, r.left, r.right, DEFAULT_GROUP);
+ 				break;
+ 
++			case WID_GL_INFO: {
++				Money this_year = 0;
++				Money last_year = 0;
++				uint32 occupancy = 0;
++				uint32 group_vehicles = 0;
++
++				for (uint i = 0, vehicle_count = this->vehicles.Length(); i < vehicle_count; i++) {
++					const Vehicle *v = this->vehicles[i];
++
++					assert(v->owner == this->owner);
++
++					this_year += v->GetDisplayProfitThisYear();
++					last_year += v->GetDisplayProfitLastYear();
++					occupancy += v->trip_occupancy;
++					group_vehicles++;
++				}
++
++				DrawString(r.left + WD_FRAMERECT_LEFT + 8, r.right - WD_FRAMERECT_RIGHT - 16, r.top + WD_FRAMERECT_TOP + 1, STR_GROUP_PROFIT_THIS_YEAR, TC_BLACK);
++				SetDParam(0, this_year);
++				DrawString(r.left + WD_FRAMERECT_LEFT + 8, r.right - WD_FRAMERECT_RIGHT - 16, r.top + WD_FRAMERECT_TOP + 1, STR_JUST_CURRENCY_LONG, TC_BLACK, SA_RIGHT);
++				
++				DrawString(r.left + WD_FRAMERECT_LEFT + 8, r.right - WD_FRAMERECT_RIGHT - 16, r.top + WD_FRAMERECT_TOP + FONT_HEIGHT_NORMAL + 2, STR_GROUP_PROFIT_LAST_YEAR, TC_BLACK);
++				SetDParam(0, last_year);
++				DrawString(r.left + WD_FRAMERECT_LEFT + 8, r.right - WD_FRAMERECT_RIGHT - 16, r.top + WD_FRAMERECT_TOP + FONT_HEIGHT_NORMAL + 2, STR_JUST_CURRENCY_LONG, TC_BLACK, SA_RIGHT);
++
++				DrawString(r.left + WD_FRAMERECT_LEFT + 8, r.right - WD_FRAMERECT_RIGHT - 16, r.top + WD_FRAMERECT_TOP + 2 * FONT_HEIGHT_NORMAL + 3, STR_GROUP_OCCUPANCY, TC_BLACK);
++				if (group_vehicles > 0) {
++					SetDParam(0, occupancy / group_vehicles);
++				  DrawString(r.left + WD_FRAMERECT_LEFT + 8, r.right - WD_FRAMERECT_RIGHT - 16, r.top + WD_FRAMERECT_TOP + 2 * FONT_HEIGHT_NORMAL + 3, STR_GROUP_OCCUPANCY_VALUE, TC_BLACK, SA_RIGHT);
++				}
++
++				break;
++			}
++
+ 			case WID_GL_LIST_GROUP: {
+ 				int y1 = r.top + WD_FRAMERECT_TOP;
+ 				int max = min(this->group_sb->GetPosition() + this->group_sb->GetCapacity(), this->groups.Length());
+@@ -885,7 +925,6 @@
+ 	}
+ };
+ 
+-
+ static WindowDesc _other_group_desc(
+ 	WDP_AUTO, "list_groups", 460, 246,
+ 	WC_INVALID, WC_NONE,
+Index: src/lang/english.txt
+===================================================================
+--- src/lang/english.txt	(revision 27210)
++++ src/lang/english.txt	(working copy)
+@@ -3366,6 +3370,11 @@
+ 
+ STR_GROUP_RENAME_CAPTION                                        :{BLACK}Rename a group
+ 
++STR_GROUP_PROFIT_THIS_YEAR                                      :Profit this year:
++STR_GROUP_PROFIT_LAST_YEAR                                      :Profit last year:
++STR_GROUP_OCCUPANCY                                             :Current usage:
++STR_GROUP_OCCUPANCY_VALUE                                       :{NUM}%
++
+ # Build vehicle window
+ STR_BUY_VEHICLE_TRAIN_RAIL_CAPTION                              :New Rail Vehicles
+ STR_BUY_VEHICLE_TRAIN_ELRAIL_CAPTION                            :New Electric Rail Vehicles
+
+Index: src/saveload/vehicle_sl.cpp
+===================================================================
+--- src/saveload/vehicle_sl.cpp	(revision 27210)
++++ src/saveload/vehicle_sl.cpp	(working copy)
+@@ -375,6 +375,8 @@
+ 	FOR_ALL_VEHICLES(v) {
+ 		assert(v->first != NULL);
+ 
++	  v->trip_occupancy = CalcPercentVehicleFilled(v, NULL);
++
+ 		switch (v->type) {
+ 			case VEH_TRAIN: {
+ 				Train *t = Train::From(v);
+Index: src/vehicle.cpp
+===================================================================
+--- src/vehicle.cpp	(revision 27210)
++++ src/vehicle.cpp	(working copy)
+@@ -2104,6 +2319,7 @@
+ 	st->loading_vehicles.remove(this);
+ 
+ 	HideFillingPercent(&this->fill_percent_te_id);
++	trip_occupancy = CalcPercentVehicleFilled(this, NULL);
+ 
+ 	if (this->type == VEH_TRAIN && !(this->vehstatus & VS_CRASHED)) {
+ 		/* Trigger station animation (trains only) */
+Index: src/vehicle_base.h
+===================================================================
+--- src/vehicle_base.h	(revision 27210)
++++ src/vehicle_base.h	(working copy)
+@@ -250,6 +255,7 @@
+ 	uint16 refit_cap;                   ///< Capacity left over from before last refit.
+ 	VehicleCargoList cargo;             ///< The cargo this vehicle is carrying
+ 	uint16 cargo_age_counter;           ///< Ticks till cargo is aged next.
++	int8 trip_occupancy;                ///< Occupancy of vehicle of the current trip (updated after leaving a station).
+ 
+ 	byte day_counter;                   ///< Increased by one for each day
+ 	byte tick_counter;                  ///< Increased by one for each tick
+Index: src/widgets/group_widget.h
+===================================================================
+--- src/widgets/group_widget.h	(revision 27210)
++++ src/widgets/group_widget.h	(working copy)
+@@ -32,6 +32,7 @@
+ 	WID_GL_DELETE_GROUP,             ///< Delete group button.
+ 	WID_GL_RENAME_GROUP,             ///< Rename group button.
+ 	WID_GL_REPLACE_PROTECTION,       ///< Replace protection button.
++	WID_GL_INFO,                     ///< Group info.
+ };
+ 
+ #endif /* WIDGETS_GROUP_WIDGET_H */

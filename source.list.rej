@@ -1,0 +1,10 @@
+--- source.list	(revision 27210)
++++ source.list	(working copy)
+@@ -376,6 +378,7 @@
+ transparency.h
+ transparency_gui.h
+ transport_type.h
++triphistory.h
+ tunnelbridge.h
+ vehicle_base.h
+ vehicle_func.h
