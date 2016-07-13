@@ -20,23 +20,32 @@ typedef int32  Ticks;     ///< The type to store ticks in
 typedef int32  Year;  ///< Type for the year, note: 0 based, i.e. starts at the year 0.
 typedef uint8  Month; ///< Type for the month, note: 0 based, i.e. 0 = January, 11 = December.
 typedef uint8  Day;   ///< Type for the day of the month, note: 1 based, first day of a month is 1.
-
+typedef uint8  Hour;
+typedef uint8  Minute;
 /**
  * 1 day is 74 ticks; _date_fract used to be uint16 and incremented by 885. On
  *                    an overflow the new day begun and 65535 / 885 = 74.
  * 1 tick is approximately 30 ms.
  * 1 day is thus about 2 seconds (74 * 30 = 2220) on a machine that can run OpenTTD normally
  */
-static const int DAY_TICKS         =  74; ///< ticks per day
+
+static const int TIME_SCALE = 10;
+static const int TOWN_GROWTH_SCALE = 1;
+static const int INDUSTRY_PRODUCTION_SCALE = TIME_SCALE;
+static const int CARGO_AGING_SCALE = 1;
+static const int STATION_RATING_SCALE = 1;
+
+static const int BASE_DAY_TICKS    = 34;
+static const int DAY_TICKS         =  BASE_DAY_TICKS * TIME_SCALE; ///< day takes 1 second (about)
 static const int DAYS_IN_YEAR      = 365; ///< days per year
 static const int DAYS_IN_LEAP_YEAR = 366; ///< sometimes, you need one day more...
 
-static const int STATION_RATING_TICKS     = 185; ///< cycle duration for updating station rating
-static const int STATION_ACCEPTANCE_TICKS = 250; ///< cycle duration for updating station acceptance
+static const int STATION_RATING_TICKS     = 185 * TIME_SCALE * STATION_RATING_SCALE; ///< cycle duration for updating station rating
+static const int STATION_ACCEPTANCE_TICKS = 250 * TIME_SCALE * STATION_RATING_SCALE; ///< cycle duration for updating station acceptance
 static const int STATION_LINKGRAPH_TICKS  = 504; ///< cycle duration for cleaning dead links
-static const int CARGO_AGING_TICKS        = 185; ///< cycle duration for aging cargo
-static const int INDUSTRY_PRODUCE_TICKS   = 256; ///< cycle duration for industry production
-static const int TOWN_GROWTH_TICKS        = 70;  ///< cycle duration for towns trying to grow. (this originates from the size of the town array in TTD
+static const int CARGO_AGING_TICKS        = 185 * TIME_SCALE * CARGO_AGING_SCALE; ///< cycle duration for aging cargo
+static const int INDUSTRY_PRODUCE_TICKS   = 256 * TIME_SCALE * INDUSTRY_PRODUCTION_SCALE; ///< cycle duration for industry production
+static const int TOWN_GROWTH_TICKS        = 70 * TIME_SCALE * TOWN_GROWTH_SCALE;  ///< cycle duration for towns trying to grow. (this originates from the size of the town array in TTD
 static const int INDUSTRY_CUT_TREE_TICKS  = INDUSTRY_PRODUCE_TICKS * 2; ///< cycle duration for lumber mill's extra action
 
 
@@ -104,6 +113,15 @@ struct YearMonthDay {
 	Year  year;   ///< Year (0...)
 	Month month;  ///< Month (0..11)
 	Day   day;    ///< Day (1..31)
+};
+
+struct YearMonthDayTime
+{
+	Year year;
+	Month month;
+	Day day;
+	Hour hour;
+	Minute minute;
 };
 
 static const Year  INVALID_YEAR  = -1; ///< Representation of an invalid year

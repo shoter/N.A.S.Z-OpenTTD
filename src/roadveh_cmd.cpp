@@ -462,7 +462,7 @@ inline int RoadVehicle::GetCurrentMaxSpeed() const
 		}
 	}
 
-	return min(max_speed, this->current_order.GetMaxSpeed() * 2) / _settings_game.ourSettings.vehicleSpeedMultiplier;
+	return min(max_speed, this->current_order.GetMaxSpeed() * 2);
 }
 
 /**
@@ -1539,45 +1539,51 @@ static bool RoadVehController(RoadVehicle *v)
 
 	if (v->IsInDepot() && RoadVehLeaveDepot(v, true)) return true;
 
-	v->ShowVisualEffect();
+	
 
 	/* Check how far the vehicle needs to proceed */
-	int j = v->UpdateSpeed();
 
-	int adv_spd = v->GetAdvanceDistance();
-	bool blocked = false;
-	while (j >= adv_spd) {
-		j -= adv_spd;
+	if(++(v->vehicleMotionCounter) >= _settings_game.ourSettings.vehicleSpeedMultiplier)
+	{
+		v->vehicleMotionCounter = 0;
 
-		RoadVehicle *u = v;
-		for (RoadVehicle *prev = NULL; u != NULL; prev = u, u = u->Next()) {
-			if (!IndividualRoadVehicleController(u, prev)) {
-				blocked = true;
-				break;
+		v->ShowVisualEffect();
+		int j = v->UpdateSpeed();
+
+		int adv_spd = v->GetAdvanceDistance();
+		bool blocked = false;
+		while (j >= adv_spd) {
+			j -= adv_spd;
+
+			RoadVehicle *u = v;
+			for (RoadVehicle *prev = NULL; u != NULL; prev = u, u = u->Next()) {
+				if (!IndividualRoadVehicleController(u, prev)) {
+					blocked = true;
+					break;
+				}
 			}
+			if (blocked) break;
+
+			/* Determine distance to next map position */
+			adv_spd = v->GetAdvanceDistance();
+
+			/* Test for a collision, but only if another movement will occur. */
+			if (j >= adv_spd && RoadVehCheckTrainCrash(v)) break;
 		}
-		if (blocked) break;
 
-		/* Determine distance to next map position */
-		adv_spd = v->GetAdvanceDistance();
+		v->SetLastSpeed();
 
-		/* Test for a collision, but only if another movement will occur. */
-		if (j >= adv_spd && RoadVehCheckTrainCrash(v)) break;
+		for (RoadVehicle *u = v; u != NULL; u = u->Next()) {
+			if ((u->vehstatus & VS_HIDDEN) != 0) continue;
+
+			u->UpdateViewport(false, false);
+		}
+
+		/* If movement is blocked, set 'progress' to its maximum, so the roadvehicle does
+		 * not accelerate again before it can actually move. I.e. make sure it tries to advance again
+		 * on next tick to discover whether it is still blocked. */
+		if (v->progress == 0) v->progress = blocked ? adv_spd - 1 : j;
 	}
-
-	v->SetLastSpeed();
-
-	for (RoadVehicle *u = v; u != NULL; u = u->Next()) {
-		if ((u->vehstatus & VS_HIDDEN) != 0) continue;
-
-		u->UpdateViewport(false, false);
-	}
-
-	/* If movement is blocked, set 'progress' to its maximum, so the roadvehicle does
-	 * not accelerate again before it can actually move. I.e. make sure it tries to advance again
-	 * on next tick to discover whether it is still blocked. */
-	if (v->progress == 0) v->progress = blocked ? adv_spd - 1 : j;
-
 	return true;
 }
 

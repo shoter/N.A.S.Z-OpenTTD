@@ -1396,7 +1396,7 @@ CommandCost CmdBuildRailStation(TileIndex tile_org, DoCommandFlag flags, uint32 
 		{
 			uint distance = DistanceSquare(tile, t->xy);
 
-			cost.AddCost( 100 * (((t->cache.population / 204) * (2048 / (distance + 1))) + 1));
+			cost.AddCost( 100 * (((t->cache.population / 20400 * _settings_game.ourSettings.buildStationPopulationMultiplier) * (2048 / (distance + 1)) / 100 * _settings_game.ourSettings.buildStationPopulationMultiplier) + 1));
 		}
 	}
 
@@ -1890,7 +1890,7 @@ CommandCost CmdBuildRoadStop(TileIndex tile, DoCommandFlag flags, uint32 p1, uin
 		const Town *t = ClosestTownFromTile(tile, (uint)-1);
 		uint distance = DistanceSquare(tile, t->xy);
 
-		cost.AddCost( 100 * (((t->cache.population / 204) * (2048 / (distance + 1)) / 2) + 1) * ((type) ? 4 : 1 ));
+		cost.AddCost( 100 * (((t->cache.population / 20400 * _settings_game.ourSettings.buildStationPopulationMultiplier) * (2048 / (distance + 1)) / 200 * _settings_game.ourSettings.buildStationDistanceMultiplier) + 1) * ((type) ? 4 : 1 ));
 	}
 
 	return cost;

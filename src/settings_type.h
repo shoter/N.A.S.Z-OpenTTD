@@ -542,10 +542,19 @@ struct CompanySettings {
 struct OurSettings 
 {
 	bool townCosts;
-	uint8 roadCostMultiplier;
-	uint8 buildingCostMultiplier;
+	uint32 clearLandscapePopulationMultiplier;
+	uint32 clearLandscapeDistanceMultiplier;
+	uint32 buildStationPopulationMultiplier;
+	uint32 buildStationDistanceMultiplier;
+	uint32 timeScale;
+	int8 townGrowthScale;
+	int8 industryProductionScale;
+	int8 cargoAgingScale;
+	int8 stationRatingScale;
 	uint8 vehicleSpeedMultiplier;
 };
+
+
 
 /** All settings together for the game. */
 struct GameSettings {

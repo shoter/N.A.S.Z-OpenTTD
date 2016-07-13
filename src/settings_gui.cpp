@@ -9,7 +9,7 @@
 
 /** @file settings_gui.cpp GUI for settings. */
 
-#include "stdafx.h"
+#include "stdafx.h" 
 #include "currency.h"
 #include "error.h"
 #include "settings_gui.h"
@@ -1745,6 +1745,13 @@ static SettingsContainer &GetSettingsTree()
 		SettingsPage *ourSettings = main->Add(new SettingsPage(STR_CONFIG_PATCHES_OUR_SETTINGS));
 		{
 			ourSettings->Add(new SettingEntry("ourSettings.townCosts"));
+			SettingsPage *townCosts = ourSettings->Add(new SettingsPage(STR_CONFIG_PATCHES_TOWN_COSTS));
+			{
+				townCosts->Add(new SettingEntry("ourSettings.clearLandscapePopulationMultiplier"));
+				townCosts->Add(new SettingEntry("ourSettings.clearLandscapeDistanceMultiplier"));
+				townCosts->Add(new SettingEntry("ourSettings.buildStationPopulationMultiplier"));
+				townCosts->Add(new SettingEntry("ourSettings.buildStationDistanceMultiplier"));
+			}
 			ourSettings->Add(new SettingEntry("ourSettings.vehicleSpeedMultiplier"));
 		}
 

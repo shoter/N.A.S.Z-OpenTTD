@@ -51,6 +51,7 @@
 #include "goal_base.h"
 #include "story_base.h"
 #include "linkgraph/refresh.h"
+#include "console_func.h"
 
 #include "table/strings.h"
 #include "table/pricebase.h"
@@ -975,6 +976,7 @@ Money GetPrice(Price index, uint cost_factor, const GRFFile *grf_file, int shift
 
 Money GetTransportedGoodsIncome(uint num_pieces, uint dist, byte transit_days, CargoID cargo_type)
 {
+	
 	const CargoSpec *cs = CargoSpec::Get(cargo_type);
 	if (!cs->IsValid()) {
 		/* User changed newgrfs and some vehicle still carries some cargo which is no longer available. */
@@ -1233,12 +1235,13 @@ void CargoPayment::PayFinalDelivery(const CargoPacket *cp, uint count)
  */
 Money CargoPayment::PayTransfer(const CargoPacket *cp, uint count)
 {
-	Money profit = GetTransportedGoodsIncome(
+	Money profit = 0;
+		/*GetTransportedGoodsIncome(
 			count,
-			/* pay transfer vehicle for only the part of transfer it has done: ie. cargo_loaded_at_xy to here */
+			 pay transfer vehicle for only the part of transfer it has done: ie. cargo_loaded_at_xy to here 
 			DistanceManhattan(cp->LoadedAtXY(), Station::Get(this->current_station)->xy),
 			cp->DaysInTransit(),
-			this->ct);
+			this->ct);*/
 
 	profit = profit * _settings_game.economy.feeder_payment_share / 100;
 

@@ -185,6 +185,7 @@ public:
 	Money value;                        ///< Value of the vehicle
 
 	TripHistory trip_history;           ///< Trip History Info
+	int vehicleMotionCounter;
 
 	CargoPayment *cargo_payment;        ///< The cargo payment we're currently in
 
@@ -944,7 +945,7 @@ struct SpecializedVehicle : public Vehicle {
 	/**
 	 * Set vehicle type correctly
 	 */
-	inline SpecializedVehicle<T, Type>() : Vehicle(Type) { }
+	inline SpecializedVehicle<T, Type>() : Vehicle(Type) { vehicleMotionCounter = 0; }
 
 	/**
 	 * Get the first vehicle in the chain

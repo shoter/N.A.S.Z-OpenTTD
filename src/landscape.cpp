@@ -651,33 +651,33 @@ CommandCost CmdLandscapeClear(TileIndex tile, DoCommandFlag flags, uint32 p1, ui
 
 				case MP_HOUSE: ///< demolishing a house is expensive especially in large cities
 					if (t->cache.population < 100) break;
-					cost.MultiplyCost(((t->cache.population / 20) * (2048 / (distance + 1)) / 2) + 1);
+					cost.MultiplyCost(((t->cache.population / 2000 * _settings_game.ourSettings.clearLandscapePopulationMultiplier) * (2048 / (distance + 1)) / 200 * _settings_game.ourSettings.clearLandscapeDistanceMultiplier) + 1);
 					break;
 
 				case MP_WATER: ///< make levelling and demolishing on water a little less expensive
 					if (t->cache.population < 600) break;
-					cost.MultiplyCost(((t->cache.population / 40) * (1024 / (distance + 1)) / 48) + 1);
+					cost.MultiplyCost(((t->cache.population / 4000) * (1024 / (distance + 1)) / 48) + 1);
 					break;
 				case MP_ROAD: ///< building and demolishing road should be a little easier
 					{
 						Owner owner = GetTileOwner(tile);
 
 						if(owner == OWNER_TOWN)
-							cost.MultiplyCost((((t->cache.population + 1) / 64) * (1536 / (distance + 1)) / 2) + 1);
+							cost.MultiplyCost((((t->cache.population + 1) / 6400 * _settings_game.ourSettings.clearLandscapePopulationMultiplier) * (1536 / (distance + 1)) / 200 * _settings_game.ourSettings.clearLandscapeDistanceMultiplier) + 1);
 						else
-							cost.MultiplyCost((((t->cache.population + 1) / 64) * (1536 / (distance + 1)) / 8) + 1);
+							cost.MultiplyCost((((t->cache.population + 1) / 6400 * _settings_game.ourSettings.clearLandscapePopulationMultiplier) * (1536 / (distance + 1)) / 800 * _settings_game.ourSettings.clearLandscapeDistanceMultiplier) + 1);
 						break;
 					}
 				case MP_RAILWAY:  ///< don't give you more money on selling than you paid
 					if (t->cache.population < 999999) break; ///< to fix exploits until a better solution is found
-					cost.MultiplyCost(((t->cache.population / 51) * (1536 / (distance + 1)) / 12) + 1);
+					cost.MultiplyCost(((t->cache.population / 5100 * _settings_game.ourSettings.clearLandscapePopulationMultiplier) * (1536 / (distance + 1)) / 1200 * _settings_game.ourSettings.clearLandscapeDistanceMultiplier) + 1);
 					break;
 				case MP_TREES:
-					cost.MultiplyCost((((t->cache.population + 1) / 32) * (1536 / (distance + 1)) / 2) + 1);
+					cost.MultiplyCost((((t->cache.population + 1) / 3200 * _settings_game.ourSettings.clearLandscapePopulationMultiplier) * (1536 / (distance + 1)) / 200 * _settings_game.ourSettings.clearLandscapeDistanceMultiplier) + 1);
 					break;
 				default:
 					if (t->cache.population < 800) break;
-					cost.MultiplyCost((t->cache.population / 40) * (1536 / (distance + 1)) + 1);
+					cost.MultiplyCost((t->cache.population / 4000 * _settings_game.ourSettings.clearLandscapePopulationMultiplier) * (1536 / (distance + 1)) / 100 * _settings_game.ourSettings.clearLandscapeDistanceMultiplier + 1);
 					break;
 			}
 		}

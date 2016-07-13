@@ -1285,7 +1285,7 @@ STR_CONFIG_SETTING_HOVER_DELAY                                  :Show tooltips: 
 STR_CONFIG_SETTING_HOVER_DELAY_HELPTEXT                         :Delay before tooltips are displayed when hovering the mouse over some interface element. Alternatively tooltips are bound to the right mouse button when this value is set to 0.
 STR_CONFIG_SETTING_HOVER_DELAY_VALUE                            :Hover for {COMMA} millisecond{P 0 "" s}
 STR_CONFIG_SETTING_HOVER_DELAY_DISABLED                         :Right click
-STR_CONFIG_SETTING_POPULATION_IN_LABEL                          :{LTBLUE}Show extra information in the town name label: {ORANGE}{STRING1}
+STR_CONFIG_SETTING_POPULATION_IN_LABEL                          :{LTBLUE}Show extra information in the town name label: {ORANGE}{STRING2}
 STR_CONFIG_SETTING_POPULATION_IN_LABEL_HELPTEXT                 :Display the population of towns in their label on the map
 STR_CONFIG_SETTING_GRAPH_LINE_THICKNESS                         :Thickness of lines in graphs: {STRING2}
 STR_CONFIG_SETTING_GRAPH_LINE_THICKNESS_HELPTEXT                :Width of the line in the graphs. A thin line is more precisely readable, a thicker line is easier to see and colours are easier to distinguish
@@ -1546,7 +1546,23 @@ STR_CONFIG_SETTING_CYCLE_SIGNAL_PBS                             :Path signals on
 STR_CONFIG_SETTING_CYCLE_SIGNAL_ALL                             :All
 
 STR_CONFIG_PATCHES_OUR_SETTINGS									:{ORANGE}Our Settings
-STR_CONFIG_PATCHES_TOWN_CONSTRUCTION_COST                       :{LTBLUE}Increase contruction costs near towns: {ORANGE}{STRING2}
+STR_CONFIG_PATCHES_TOWN_COSTS								    :{LTBLUE}Costs near towns
+
+STR_CONFIG_PATCHES_TOWN_CONSTRUCTION_COST                       :Increase contruction costs near towns: {ORANGE}{STRING2}
+STR_CONFIG_PATCHES_TOWN_CLEAR_DISTANCE_MULTIPLIER               :Distance cost multipier for {GREEN}Clear{BLACK}: {ORANGE}{STRING2}
+STR_CONFIG_PATCHES_TOWN_CLEAR_POPULATION_MULTIPLIER             :Population cost multipier for {GREEN}Clear{BLACK}: {ORANGE}{STRING2}
+STR_CONFIG_PATCHES_TOWN_STATION_DISTANCE_MULTIPLIER             :Distance cost multipier for {GREEN}Station{BLACK}: {ORANGE}{STRING2}
+STR_CONFIG_PATCHES_TOWN_STATION_POPULATION_MULTIPLIER           :Population cost multipier for {GREEN}Station{BLACK}: {ORANGE}{STRING2}
+
+STR_CONFIG_PATCHES_TIME											:Time Scale
+
+STR_CONFIG_PATCHES_TIME_SCALE									:Time Scale Base: {ORANGE}{STRING2}x
+STR_CONFIG_PATCHES_TIME_SCALE_HELP								:Used as base for day tick. It affects all settings below It defines how much times is multiplied day time which base day time equals 1 second.
+STR_CONFIG_PATCHES_TIME_TOWN_GROWTH_SCALE						:Town Growth Scale: {ORANGE}{STRING2}x
+STR_CONFIG_PATCHES_TIME_INDUSTRY_PRODUCTION_SCALE				:Industry Production Scale: {ORANGE}{STRING2}x
+STR_CONFIG_PATCHES_TIME_CARGO_AGING_SCALE						:Cargo Aging Scale : {ORANGE}{STRING2}x
+STR_CONFIG_PATCHES_TIME_STATION_RATING_SCALE					:Station Rating Time Scale : {ORANGE}{STRING2}x
+STR_CONFIG_PATCHES_TIME_STATION_RATING_SCALE_HELP				:Updates cycle duration for updating station rating/acceptance.
 
 STR_CONFIG_PATCHES_OUR_SETTINGS_VEHICLE_SPEED					:Vehicle speed decrease: {ORANGE}{STRING2}x
 
@@ -4894,6 +4910,7 @@ STR_VEHICLE_NAME_AIRCRAFT_POWERNAUT_HELICOPTER                  :Powernaut Helic
 STR_FORMAT_DATE_TINY                                            :{RAW_STRING}-{RAW_STRING}-{NUM}
 STR_FORMAT_DATE_SHORT                                           :{STRING} {NUM}
 STR_FORMAT_DATE_LONG                                            :{STRING} {STRING} {NUM}
+STR_FORMAT_DATE_REAL											:{STRING} {STRING} {NUM} {NUM}:{NUM}
 STR_FORMAT_DATE_ISO                                             :{2:NUM}-{1:RAW_STRING}-{0:RAW_STRING}
 
 STR_FORMAT_BUOY_NAME                                            :{TOWN} Buoy

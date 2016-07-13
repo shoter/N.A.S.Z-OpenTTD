@@ -20,6 +20,7 @@
 #include "rail_gui.h"
 #include "linkgraph/linkgraph.h"
 #include "saveload/saveload.h"
+#include "console_func.h"
 
 #include "safeguards.h"
 
@@ -156,6 +157,7 @@ Date ConvertYMDToDate(Year year, Month month, Day day)
 
 	return DAYS_TILL(year) + days;
 }
+
 
 /** Functions used by the IncreaseDate function */
 

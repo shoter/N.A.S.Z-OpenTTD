@@ -729,7 +729,7 @@ uint ConvertSpeedToDisplaySpeed(uint speed)
 	/* For historical reasons we don't want to mess with the
 	 * conversion for speed. So, don't round it and keep the
 	 * original conversion factors instead of the real ones. */
-	return _units_velocity[_settings_game.locale.units_velocity].c.ToDisplay(speed, false);
+	return _units_velocity[_settings_game.locale.units_velocity].c.ToDisplay(speed, false) * _settings_game.ourSettings.vehicleSpeedMultiplier;
 }
 
 /**

@@ -22,6 +22,7 @@ extern uint16 _tick_counter;
 
 void SetDate(Date date, DateFract fract);
 void ConvertDateToYMD(Date date, YearMonthDay *ymd);
+void ConvertDateToYMDT(Date date, YearMonthDayTime *ymd);
 Date ConvertYMDToDate(Year year, Month month, Day day);
 
 /**

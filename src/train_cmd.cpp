@@ -11,6 +11,7 @@
 
 #include "stdafx.h"
 #include "error.h"
+#include "console_func.h"
 #include "articulated_vehicles.h"
 #include "command_func.h"
 #include "pathfinder/npf/npf_func.h"
@@ -433,7 +434,9 @@ int Train::GetCurrentMaxSpeed() const
 	}
 
 	max_speed = min(max_speed, this->current_order.GetMaxSpeed());
-	return min(max_speed, this->gcache.cached_max_track_speed) / _settings_game.ourSettings.vehicleSpeedMultiplier;
+
+	
+	return min(max_speed, this->gcache.cached_max_track_speed);
 }
 
 /** Update acceleration of the train from the cached power and weight. */
@@ -3834,53 +3837,58 @@ static bool TrainLocoHandler(Train *v, bool mode)
 		return true;
 	}
 
-	int j = v->UpdateSpeed();
+	if(++(v->vehicleMotionCounter) >= _settings_game.ourSettings.vehicleSpeedMultiplier)
+	{
+		v->vehicleMotionCounter = 0;
 
-	/* we need to invalidate the widget if we are stopping from 'Stopping 0 km/h' to 'Stopped' */
-	if (v->cur_speed == 0 && (v->vehstatus & VS_STOPPED)) {
-		/* If we manually stopped, we're not force-proceeding anymore. */
-		v->force_proceed = TFP_NONE;
-		SetWindowDirty(WC_VEHICLE_VIEW, v->index);
-	}
+		int j = v->UpdateSpeed();
 
-	int adv_spd = v->GetAdvanceDistance();
-	if (j < adv_spd) {
-		/* if the vehicle has speed 0, update the last_speed field. */
-		if (v->cur_speed == 0) v->SetLastSpeed();
-	} else {
-		TrainCheckIfLineEnds(v);
-		/* Loop until the train has finished moving. */
-		for (;;) {
-			j -= adv_spd;
-			TrainController(v, NULL);
-			/* Don't continue to move if the train crashed. */
-			if (CheckTrainCollision(v)) break;
-			/* Determine distance to next map position */
-			adv_spd = v->GetAdvanceDistance();
-
-			/* No more moving this tick */
-			if (j < adv_spd || v->cur_speed == 0) break;
-
-			OrderType order_type = v->current_order.GetType();
-			/* Do not skip waypoints (incl. 'via' stations) when passing through at full speed. */
-			if ((order_type == OT_GOTO_WAYPOINT || order_type == OT_GOTO_STATION) &&
-						(v->current_order.GetNonStopType() & ONSF_NO_STOP_AT_DESTINATION_STATION) &&
-						IsTileType(v->tile, MP_STATION) &&
-						v->current_order.GetDestination() == GetStationIndex(v->tile)) {
-				ProcessOrders(v);
-			}
+		/* we need to invalidate the widget if we are stopping from 'Stopping 0 km/h' to 'Stopped' */
+		if (v->cur_speed == 0 && (v->vehstatus & VS_STOPPED)) {
+			/* If we manually stopped, we're not force-proceeding anymore. */
+			v->force_proceed = TFP_NONE;
+			SetWindowDirty(WC_VEHICLE_VIEW, v->index);
 		}
-		v->SetLastSpeed();
+
+		int adv_spd = v->GetAdvanceDistance();
+		if (j < adv_spd) {
+			/* if the vehicle has speed 0, update the last_speed field. */
+			if (v->cur_speed == 0) v->SetLastSpeed();
+		} else {
+			TrainCheckIfLineEnds(v);
+			/* Loop until the train has finished moving. */
+			for (;;) {
+				j -= adv_spd;
+				TrainController(v, NULL);
+				/* Don't continue to move if the train crashed. */
+				if (CheckTrainCollision(v)) break;
+				/* Determine distance to next map position */
+				adv_spd = v->GetAdvanceDistance();
+
+				/* No more moving this tick */
+				if (j < adv_spd || v->cur_speed == 0) break;
+
+				OrderType order_type = v->current_order.GetType();
+				/* Do not skip waypoints (incl. 'via' stations) when passing through at full speed. */
+				if ((order_type == OT_GOTO_WAYPOINT || order_type == OT_GOTO_STATION) &&
+							(v->current_order.GetNonStopType() & ONSF_NO_STOP_AT_DESTINATION_STATION) &&
+							IsTileType(v->tile, MP_STATION) &&
+							v->current_order.GetDestination() == GetStationIndex(v->tile)) {
+					ProcessOrders(v);
+				}
+			}
+			v->SetLastSpeed();
+		}
+	
+
+		for (Train *u = v; u != NULL; u = u->Next()) {
+			if ((u->vehstatus & VS_HIDDEN) != 0) continue;
+
+			u->UpdateViewport(false, false);
+		}
+
+		if (v->progress == 0) v->progress = j; // Save unused spd for next time, if TrainController didn't set progress
 	}
-
-	for (Train *u = v; u != NULL; u = u->Next()) {
-		if ((u->vehstatus & VS_HIDDEN) != 0) continue;
-
-		u->UpdateViewport(false, false);
-	}
-
-	if (v->progress == 0) v->progress = j; // Save unused spd for next time, if TrainController didn't set progress
-
 	return true;
 }
 
