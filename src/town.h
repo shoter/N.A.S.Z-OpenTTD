@@ -77,6 +77,7 @@ struct Town : TownPool::PoolItem<&_town_pool> {
 	uint8 unwanted[MAX_COMPANIES]; ///< how many months companies aren't wanted by towns (bribe)
 	CompanyByte exclusivity;       ///< which company has exclusivity
 	uint8 exclusive_counter;       ///< months till the exclusivity expires
+	    
 	int16 ratings[MAX_COMPANIES];  ///< ratings of each company for this town
 	StringID town_label;           ///< Label dependent on _local_company rating.
 
@@ -97,6 +98,9 @@ struct Town : TownPool::PoolItem<&_town_pool> {
 
 	uint16 grow_counter;           ///< counter to count when to grow, value is smaller than or equal to growth_rate
 	uint16 growth_rate;            ///< town growth rate
+
+	uint16 house_production_tick;
+	bool is_growing;
 
 	byte fund_buildings_months;    ///< fund buildings program in action?
 	byte road_build_months;        ///< fund road reconstruction in action?

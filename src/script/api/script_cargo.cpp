@@ -65,7 +65,7 @@
 /* static */ Money ScriptCargo::GetCargoIncome(CargoID cargo_type, uint32 distance, uint32 days_in_transit)
 {
 	if (!IsValidCargo(cargo_type)) return -1;
-	return ::GetTransportedGoodsIncome(1, distance, Clamp(days_in_transit * 2 / 5, 0, 255), cargo_type);
+	return ::GetTransportedGoodsIncome(1, distance, Clamp(days_in_transit * 2 / 5, 0, 255), cargo_type) / Money(_settings_game.ourSettings.profitDivider);
 }
 
 /* static */ ScriptCargo::DistributionType ScriptCargo::GetDistributionType(CargoID cargo_type)

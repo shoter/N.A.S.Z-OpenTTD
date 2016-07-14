@@ -13,6 +13,7 @@
 #include "road_internal.h" /* Cleaning up road bits */
 #include "road_cmd.h"
 #include "landscape.h"
+#include "console_func.h"
 #include "viewport_func.h"
 #include "cmd_helper.h"
 #include "command_func.h"
@@ -479,6 +480,54 @@ static void MakeTownHouseBigger(TileIndex tile)
 	if (flags & BUILDING_HAS_4_TILES) MakeSingleHouseBigger(TILE_ADDXY(tile, 1, 1));
 }
 
+ /* Generate cargo for a town (house).
+ *
+ * The amount of cargo should be and will be greater than zero.
+ *
+ * @param t current town
+ * @param ct type of cargo to generate, usually CT_PASSENGERS or CT_MAIL
+ * @param amount how many units of cargo
+ * @param stations available stations for this house
+ */
+static void TownGenerateCargo (Town *t, CargoID ct, uint amount, StationFinder &stations)
+{
+	if(t->house_production_tick >= _settings_game.ourSettings.houseProductionTimeScaler)
+	{
+		// custom cargo generation factor
+		int cf = _settings_game.ourSettings.houseProductionScale;
+	
+		// when the economy fluctuates, everyone wants to stay at home
+		if (EconomyIsInRecession()) {
+			amount = (amount + 1) >> 1;
+		}
+	
+		// apply custom factor?
+		if (cf < 0) {
+			// aprox (amount / 2^cf)
+			// adjust with a constant offset of {(2 ^ cf) - 1} (i.e. add cf * 1-bits) before dividing to ensure that it doesn't become zero
+			// this skews the curve a little so that isn't entirely exponential, but will still decrease
+			amount = (amount + ((1 << -cf) - 1)) >> -cf;
+		}
+	
+		else if (cf > 0) {
+			// approx (amount * 2^cf)
+			// XXX: overflow?
+			amount = amount << cf;
+		}
+	
+		// with the adjustments above, this should never happen
+		assert(amount > 0);
+	
+		// send cargo to station
+		uint moved = MoveGoodsToStation(ct, amount, ST_TOWN, t->index, stations.GetStations());
+	
+		// calculate for town stats
+		const CargoSpec *cs = CargoSpec::Get(ct);
+		t->supplied[cs->Index()].new_max += amount;
+		t->supplied[cs->Index()].new_act += moved;
+	}
+}
+
 /**
  * Tile callback function.
  *
@@ -499,7 +548,7 @@ static void TileLoop_Town(TileIndex tile)
 		return;
 	}
 
-	const HouseSpec *hs = HouseSpec::Get(house_id);
+	HouseSpec *hs = HouseSpec::Get(house_id);
 
 	/* If the lift has a destination, it is already an animated tile. */
 	if ((hs->building_flags & BUILDING_IS_ANIMATED) &&
@@ -514,7 +563,7 @@ static void TileLoop_Town(TileIndex tile)
 
 	StationFinder stations(TileArea(tile, 1, 1));
 
-	if (HasBit(hs->callback_mask, CBM_HOUSE_PRODUCE_CARGO)) {
+	if ( HasBit(hs->callback_mask, CBM_HOUSE_PRODUCE_CARGO)) {
 		for (uint i = 0; i < 256; i++) {
 			uint16 callback = GetHouseCallback(CBID_HOUSE_PRODUCE_CARGO, i, r, house_id, t, tile);
 
@@ -526,27 +575,20 @@ static void TileLoop_Town(TileIndex tile)
 			uint amt = GB(callback, 0, 8);
 			if (amt == 0) continue;
 
-			uint moved = MoveGoodsToStation(cargo, amt, ST_TOWN, t->index, stations.GetStations());
-
-			const CargoSpec *cs = CargoSpec::Get(cargo);
-			t->supplied[cs->Index()].new_max += amt;
-			t->supplied[cs->Index()].new_act += moved;
+			TownGenerateCargo(t, cargo, amt, stations);
 		}
 	} else {
 		if (GB(r, 0, 8) < hs->population) {
 			uint amt = GB(r, 0, 8) / 8 + 1;
 
-			if (EconomyIsInRecession()) amt = (amt + 1) >> 1;
-			t->supplied[CT_PASSENGERS].new_max += amt;
-			t->supplied[CT_PASSENGERS].new_act += MoveGoodsToStation(CT_PASSENGERS, amt, ST_TOWN, t->index, stations.GetStations());
+			TownGenerateCargo(t, CT_PASSENGERS, amt, stations);
 		}
 
 		if (GB(r, 8, 8) < hs->mail_generation) {
 			uint amt = GB(r, 8, 8) / 8 + 1;
 
-			if (EconomyIsInRecession()) amt = (amt + 1) >> 1;
-			t->supplied[CT_MAIL].new_max += amt;
-			t->supplied[CT_MAIL].new_act += MoveGoodsToStation(CT_MAIL, amt, ST_TOWN, t->index, stations.GetStations());
+			TownGenerateCargo(t, CT_MAIL, amt, stations);
+
 		}
 	}
 
@@ -812,6 +854,12 @@ static void TownTickHandler(Town *t)
 		}
 		t->grow_counter = i;
 	}
+
+	if(++(t->house_production_tick) >= _settings_game.ourSettings.houseProductionTimeScaler && t->is_growing == true)
+		{
+			t->is_growing = false;
+			t->house_production_tick = 0;
+		}
 }
 
 void OnTick_Town()
@@ -822,7 +870,9 @@ void OnTick_Town()
 	FOR_ALL_TOWNS(t) {
 		/* Run town tick at regular intervals, but not all at once. */
 		if ((_tick_counter + t->index) % TOWN_GROWTH_TICKS == 0) {
+
 			TownTickHandler(t);
+			
 		}
 	}
 }
@@ -3224,7 +3274,7 @@ CommandCost CheckIfAuthorityAllowsNewStation(TileIndex tile, DoCommandFlag flags
 {
 	if (!Company::IsValidID(_current_company) || (flags & DC_NO_TEST_TOWN_RATING)) return CommandCost();
 
-	Town *t = ClosestTownFromTile(tile, _settings_game.economy.dist_local_authority);
+	Town *t = ClosestTownFromTile(tile, (uint)-1);
 	if (t == NULL) return CommandCost();
 
 	if (t->ratings[_current_company] > RATING_VERYPOOR) return CommandCost();

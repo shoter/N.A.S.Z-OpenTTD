@@ -1554,6 +1554,12 @@ STR_CONFIG_PATCHES_TOWN_CLEAR_POPULATION_MULTIPLIER             :Population cost
 STR_CONFIG_PATCHES_TOWN_STATION_DISTANCE_MULTIPLIER             :Distance cost multipier for {GREEN}Station{BLACK}: {ORANGE}{STRING2}
 STR_CONFIG_PATCHES_TOWN_STATION_POPULATION_MULTIPLIER           :Population cost multipier for {GREEN}Station{BLACK}: {ORANGE}{STRING2}
 
+STR_CONFIG_PATCHES_TOWN_PRODUCTION_SCALE				        :Change produced passanger amount: {ORANGE}{STRING2}x
+STR_CONFIG_PATCHES_TOWM_TIMESCALE_GROWTH						:Extend time for passanger generation: {ORANGE}{STRING2}x
+
+STR_CONFIG_PATCHES_INCOME_DIVIDER						        :Income divider: {ORANGE}{STRING2}x
+STR_CONFIG_PATCHES_UNCLE_MONEY							        :Money from uncle: {ORANGE}{STRING2}
+
 STR_CONFIG_PATCHES_TIME											:Time Scale
 
 STR_CONFIG_PATCHES_TIME_SCALE									:Time Scale Base: {ORANGE}{STRING2}x

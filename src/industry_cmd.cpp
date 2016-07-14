@@ -1706,8 +1706,8 @@ static void DoCreateNewIndustry(Industry *i, TileIndex tile, IndustryType type, 
 	}
 
 	if (_generating_world) {
-		i->last_month_production[0] = i->production_rate[0] * 8;
-		i->last_month_production[1] = i->production_rate[1] * 8;
+		i->last_month_production[0] = i->production_rate[0] * 64;
+		i->last_month_production[1] = i->production_rate[1] * 64;
 	} else {
 		i->last_month_production[0] = i->last_month_production[1] = 0;
 	}

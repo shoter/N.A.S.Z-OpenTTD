@@ -3837,58 +3837,53 @@ static bool TrainLocoHandler(Train *v, bool mode)
 		return true;
 	}
 
-	if(++(v->vehicleMotionCounter) >= _settings_game.ourSettings.vehicleSpeedMultiplier)
-	{
-		v->vehicleMotionCounter = 0;
 
-		int j = v->UpdateSpeed();
+	int j = v->UpdateSpeed(); 
+	/* we need to invalidate the widget if we are stopping from 'Stopping 0 km/h' to 'Stopped' */
+	if (v->cur_speed == 0 && (v->vehstatus & VS_STOPPED)) {
+		/* If we manually stopped, we're not force-proceeding anymore. */
+		v->force_proceed = TFP_NONE;
+		SetWindowDirty(WC_VEHICLE_VIEW, v->index);
+	}
 
-		/* we need to invalidate the widget if we are stopping from 'Stopping 0 km/h' to 'Stopped' */
-		if (v->cur_speed == 0 && (v->vehstatus & VS_STOPPED)) {
-			/* If we manually stopped, we're not force-proceeding anymore. */
-			v->force_proceed = TFP_NONE;
-			SetWindowDirty(WC_VEHICLE_VIEW, v->index);
-		}
+	int adv_spd = v->GetAdvanceDistance();
+	if (j < adv_spd) {
+		/* if the vehicle has speed 0, update the last_speed field. */
+		if (v->cur_speed == 0) v->SetLastSpeed();
+	} else {
+		TrainCheckIfLineEnds(v);
+		/* Loop until the train has finished moving. */
+		for (;;) {
+			j -= adv_spd;
+			TrainController(v, NULL);
+			/* Don't continue to move if the train crashed. */
+			if (CheckTrainCollision(v)) break;
+			/* Determine distance to next map position */
+			adv_spd = v->GetAdvanceDistance();
 
-		int adv_spd = v->GetAdvanceDistance();
-		if (j < adv_spd) {
-			/* if the vehicle has speed 0, update the last_speed field. */
-			if (v->cur_speed == 0) v->SetLastSpeed();
-		} else {
-			TrainCheckIfLineEnds(v);
-			/* Loop until the train has finished moving. */
-			for (;;) {
-				j -= adv_spd;
-				TrainController(v, NULL);
-				/* Don't continue to move if the train crashed. */
-				if (CheckTrainCollision(v)) break;
-				/* Determine distance to next map position */
-				adv_spd = v->GetAdvanceDistance();
+			/* No more moving this tick */
+			if (j < adv_spd || v->cur_speed == 0) break;
 
-				/* No more moving this tick */
-				if (j < adv_spd || v->cur_speed == 0) break;
-
-				OrderType order_type = v->current_order.GetType();
-				/* Do not skip waypoints (incl. 'via' stations) when passing through at full speed. */
-				if ((order_type == OT_GOTO_WAYPOINT || order_type == OT_GOTO_STATION) &&
-							(v->current_order.GetNonStopType() & ONSF_NO_STOP_AT_DESTINATION_STATION) &&
-							IsTileType(v->tile, MP_STATION) &&
-							v->current_order.GetDestination() == GetStationIndex(v->tile)) {
-					ProcessOrders(v);
-				}
+			OrderType order_type = v->current_order.GetType();
+			/* Do not skip waypoints (incl. 'via' stations) when passing through at full speed. */
+			if ((order_type == OT_GOTO_WAYPOINT || order_type == OT_GOTO_STATION) &&
+						(v->current_order.GetNonStopType() & ONSF_NO_STOP_AT_DESTINATION_STATION) &&
+						IsTileType(v->tile, MP_STATION) &&
+						v->current_order.GetDestination() == GetStationIndex(v->tile)) {
+				ProcessOrders(v);
 			}
-			v->SetLastSpeed();
 		}
+		v->SetLastSpeed();
+	}
 	
 
-		for (Train *u = v; u != NULL; u = u->Next()) {
-			if ((u->vehstatus & VS_HIDDEN) != 0) continue;
+	for (Train *u = v; u != NULL; u = u->Next()) {
+		if ((u->vehstatus & VS_HIDDEN) != 0) continue;
 
-			u->UpdateViewport(false, false);
-		}
-
-		if (v->progress == 0) v->progress = j; // Save unused spd for next time, if TrainController didn't set progress
+		u->UpdateViewport(false, false);
 	}
+
+	if (v->progress == 0) v->progress = j; // Save unused spd for next time, if TrainController didn't set progress
 	return true;
 }
 

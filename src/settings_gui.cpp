@@ -1753,6 +1753,10 @@ static SettingsContainer &GetSettingsTree()
 				townCosts->Add(new SettingEntry("ourSettings.buildStationDistanceMultiplier"));
 			}
 			ourSettings->Add(new SettingEntry("ourSettings.vehicleSpeedMultiplier"));
+			ourSettings->Add(new SettingEntry("ourSettings.houseProductionScale"));
+			ourSettings->Add(new SettingEntry("ourSettings.houseProductionTimeScaler"));
+			ourSettings->Add(new SettingEntry("ourSettings.profitDivider"));
+			ourSettings->Add(new SettingEntry("ourSettings.uncleMoney"));
 		}
 
 		main->Init();

@@ -909,6 +909,8 @@ NetworkRecvStatus ServerNetworkGameSocketHandler::Receive_CLIENT_JOIN(Packet *p)
 
 	/* Check if the client has revision control enabled */
 	if (!IsNetworkCompatibleVersion(client_revision) || _openttd_newgrf_version != newgrf_version) {
+		IConsolePrintF(CC_WARNING, "openttd_newgrf - %i", _openttd_newgrf_version);
+		IConsolePrintF(CC_WARNING, "newgrf - %i", newgrf_version);
 		/* Different revisions!! */
 		return this->SendError(NETWORK_ERROR_WRONG_REVISION);
 	}

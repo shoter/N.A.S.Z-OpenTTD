@@ -13,6 +13,7 @@
 #include "aircraft.h"
 #include "bridge_map.h"
 #include "cmd_helper.h"
+#include "console_func.h"
 #include "viewport_func.h"
 #include "command_func.h"
 #include "town.h"
@@ -1396,7 +1397,8 @@ CommandCost CmdBuildRailStation(TileIndex tile_org, DoCommandFlag flags, uint32 
 		{
 			uint distance = DistanceSquare(tile, t->xy);
 
-			cost.AddCost( 100 * (((t->cache.population / 20400 * _settings_game.ourSettings.buildStationPopulationMultiplier) * (2048 / (distance + 1)) / 100 * _settings_game.ourSettings.buildStationPopulationMultiplier) + 1));
+			uint64 addCost = (((t->cache.population / 204 * _settings_game.ourSettings.buildStationPopulationMultiplier) * (2048 / (distance * _settings_game.ourSettings.buildStationDistanceMultiplier + 1)  ) / 2) + 1);
+			cost.AddCost( addCost);
 		}
 	}
 
@@ -1889,8 +1891,8 @@ CommandCost CmdBuildRoadStop(TileIndex tile, DoCommandFlag flags, uint32 p1, uin
 	{
 		const Town *t = ClosestTownFromTile(tile, (uint)-1);
 		uint distance = DistanceSquare(tile, t->xy);
-
-		cost.AddCost( 100 * (((t->cache.population / 20400 * _settings_game.ourSettings.buildStationPopulationMultiplier) * (2048 / (distance + 1)) / 200 * _settings_game.ourSettings.buildStationDistanceMultiplier) + 1) * ((type) ? 4 : 1 ));
+		uint64 addCost = (((t->cache.population / 204 * _settings_game.ourSettings.buildStationPopulationMultiplier) * (2048 / (distance * _settings_game.ourSettings.buildStationDistanceMultiplier + 1) ) / 2) + 1) * ((type) ? 4 : 1 );
+		cost.AddCost( addCost);
 	}
 
 	return cost;
@@ -2328,6 +2330,14 @@ CommandCost CmdBuildAirport(TileIndex tile, DoCommandFlag flags, uint32 p1, uint
 		}
 	}
 
+	if(_settings_game.ourSettings.townCosts)
+	{
+		const Town *t = ClosestTownFromTile(tile, (uint)-1);
+		uint distance = DistanceSquare(tile, t->xy);
+		uint64 addCost = (((t->cache.population / 204 * _settings_game.ourSettings.buildStationPopulationMultiplier) * (2048 / (distance * _settings_game.ourSettings.buildStationDistanceMultiplier + 1) ) / 2) + 1);
+		cost.AddCost( addCost);
+	}
+
 	return cost;
 }
 
@@ -2564,7 +2574,17 @@ CommandCost CmdBuildDock(TileIndex tile, DoCommandFlag flags, uint32 p1, uint32 
 		SetWindowWidgetDirty(WC_STATION_VIEW, st->index, WID_SV_SHIPS);
 	}
 
-	return CommandCost(EXPENSES_CONSTRUCTION, _price[PR_BUILD_STATION_DOCK]);
+	CommandCost cost(EXPENSES_CONSTRUCTION, _price[PR_BUILD_STATION_DOCK]);
+
+	if(_settings_game.ourSettings.townCosts)
+	{
+		const Town *t = ClosestTownFromTile(tile, (uint)-1);
+		uint distance = DistanceSquare(tile, t->xy);
+		uint64 addCost = (((t->cache.population / 204 * _settings_game.ourSettings.buildStationPopulationMultiplier) * (2048 / (distance * _settings_game.ourSettings.buildStationDistanceMultiplier + 1) ) / 2) + 1);
+		cost.AddCost( addCost);
+	}
+
+	return cost;
 }
 
 /**

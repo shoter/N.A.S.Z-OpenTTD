@@ -547,11 +547,14 @@ struct OurSettings
 	uint32 buildStationPopulationMultiplier;
 	uint32 buildStationDistanceMultiplier;
 	uint32 timeScale;
-	int8 townGrowthScale;
 	int8 industryProductionScale;
 	int8 cargoAgingScale;
 	int8 stationRatingScale;
 	uint8 vehicleSpeedMultiplier;
+	int8 houseProductionScale;
+	uint16 houseProductionTimeScaler;
+	uint8 profitDivider;
+	uint32 uncleMoney;
 };
 
 

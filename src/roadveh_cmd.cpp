@@ -13,6 +13,7 @@
 #include "roadveh.h"
 #include "command_func.h"
 #include "news_func.h"
+#include "console_func.h"
 #include "pathfinder/npf/npf_func.h"
 #include "station_base.h"
 #include "company_func.h"
@@ -1543,48 +1544,45 @@ static bool RoadVehController(RoadVehicle *v)
 
 	/* Check how far the vehicle needs to proceed */
 
-	if(++(v->vehicleMotionCounter) >= _settings_game.ourSettings.vehicleSpeedMultiplier)
-	{
-		v->vehicleMotionCounter = 0;
 
-		v->ShowVisualEffect();
-		int j = v->UpdateSpeed();
+	v->ShowVisualEffect();
+	int j = v->UpdateSpeed();
 
-		int adv_spd = v->GetAdvanceDistance();
-		bool blocked = false;
-		while (j >= adv_spd) {
-			j -= adv_spd;
+	int adv_spd = v->GetAdvanceDistance();
+	bool blocked = false;
+	while (j >= adv_spd) {
+		j -= adv_spd;
 
-			RoadVehicle *u = v;
-			for (RoadVehicle *prev = NULL; u != NULL; prev = u, u = u->Next()) {
-				if (!IndividualRoadVehicleController(u, prev)) {
-					blocked = true;
-					break;
-				}
+		RoadVehicle *u = v;
+		for (RoadVehicle *prev = NULL; u != NULL; prev = u, u = u->Next()) {
+			if (!IndividualRoadVehicleController(u, prev)) {
+				blocked = true;
+				break;
 			}
-			if (blocked) break;
-
-			/* Determine distance to next map position */
-			adv_spd = v->GetAdvanceDistance();
-
-			/* Test for a collision, but only if another movement will occur. */
-			if (j >= adv_spd && RoadVehCheckTrainCrash(v)) break;
 		}
+		if (blocked) break;
 
-		v->SetLastSpeed();
+		/* Determine distance to next map position */
+		adv_spd = v->GetAdvanceDistance();
 
-		for (RoadVehicle *u = v; u != NULL; u = u->Next()) {
-			if ((u->vehstatus & VS_HIDDEN) != 0) continue;
-
-			u->UpdateViewport(false, false);
-		}
-
-		/* If movement is blocked, set 'progress' to its maximum, so the roadvehicle does
-		 * not accelerate again before it can actually move. I.e. make sure it tries to advance again
-		 * on next tick to discover whether it is still blocked. */
-		if (v->progress == 0) v->progress = blocked ? adv_spd - 1 : j;
+		/* Test for a collision, but only if another movement will occur. */
+		if (j >= adv_spd && RoadVehCheckTrainCrash(v)) break;
 	}
-	return true;
+
+	v->SetLastSpeed();
+
+	for (RoadVehicle *u = v; u != NULL; u = u->Next()) {
+		if ((u->vehstatus & VS_HIDDEN) != 0) continue;
+
+		u->UpdateViewport(false, false);
+	}
+
+	/* If movement is blocked, set 'progress' to its maximum, so the roadvehicle does
+		* not accelerate again before it can actually move. I.e. make sure it tries to advance again
+		* on next tick to discover whether it is still blocked. */
+	if (v->progress == 0) v->progress = blocked ? adv_spd - 1 : j;
+	
+return true;
 }
 
 Money RoadVehicle::GetRunningCost() const

@@ -43,7 +43,7 @@
 #include "../string_func.h"
 #include "../fios.h"
 #include "../error.h"
-
+#include "../console_func.h"
 #include "table/strings.h"
 
 #include "saveload_internal.h"
