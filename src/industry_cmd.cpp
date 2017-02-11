@@ -1114,8 +1114,8 @@ static void ProduceIndustryGoods(Industry *i)
 
 		IndustryBehaviour indbehav = indsp->behaviour;
 
-		if(i->produced_cargo_waiting[0] > 0)
-			IConsolePrintF(CC_DEFAULT, "%d", i->production_rate[0]);
+		/*if(i->produced_cargo_waiting[0] > 0)
+			IConsolePrintF(CC_DEFAULT, "%d", i->production_rate[0]);*/
 
 		i->produced_cargo_waiting[0] = min(0xffff, i->produced_cargo_waiting[0] + i->production_rate[0]);
 		i->produced_cargo_waiting[1] = min(0xffff, i->produced_cargo_waiting[1] + i->production_rate[1]);

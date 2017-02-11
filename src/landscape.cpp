@@ -35,6 +35,7 @@
 #include "pathfinder/npf/aystar.h"
 #include <list>
 #include <set>
+#include "console_func.h"
 
 #include "table/strings.h"
 #include "table/sprites.h"
@@ -600,6 +601,22 @@ void ClearSnowLine()
 	free(_snow_line);
 	_snow_line = NULL;
 }
+#define POW2(x) ((x)*(x))
+int distancePeopleModifierCalculator(int people, int distance, int multiplier, int peopleModifier, int distanceModifier, int distanceAddition)
+{
+	int fin, p, d;
+	
+	p = people / peopleModifier;
+	d = distance * distanceModifier + distanceAddition;
+	fin = (int)(multiplier * (double)(people / peopleModifier) / (distance * distanceModifier + distanceAddition) + 1);
+
+
+	
+
+	IConsolePrintF(CC_DEFAULT, "landscape pop %d, distance %d, final %d", people, distance, fin);
+
+	return fin;
+}
 
 /**
  * Clear a piece of landscape
@@ -644,28 +661,49 @@ CommandCost CmdLandscapeClear(TileIndex tile, DoCommandFlag flags, uint32 p1, ui
 		TileType type = GetTileType(tile);
 
 		if (_settings_game.ourSettings.townCosts) {
-		const Town *t = ClosestTownFromTile(tile, (uint)-1);
+		const Town *t = ClosestTownFromTile(tile, (uint)100000);
 		if (t != NULL) { ///< this if is required or scenario editor will crash with no towns on certain actions
 			uint distance = DistanceSquare(tile, t->xy);
 			switch(type) {
+				default:
+				if (t->cache.population < 800) break;
+				if (c != NULL)
+				{
 
+					cost.MultiplyCost(
+						distancePeopleModifierCalculator(t->cache.population, distance, 2000, 250, 5, 230)
+					);
+				}
+				break;
+				
 				case MP_HOUSE: ///< demolishing a house is expensive especially in large cities
 					if (t->cache.population < 100) break;
-					cost.MultiplyCost((( (t->cache.population / 4000) * _settings_game.ourSettings.clearLandscapePopulationMultiplier) * (512 / (distance  * _settings_game.ourSettings.clearLandscapeDistanceMultiplier + 1) ) ) + 1);
+					if (c != NULL)
+					{
+
+						cost.MultiplyCost(
+							distancePeopleModifierCalculator(t->cache.population, distance, 4000, 250, 3, 230)
+						);
+					}
 					break;
 
 				case MP_WATER: ///< make levelling and demolishing on water a little less expensive
 					if (t->cache.population < 600) break;
-					cost.MultiplyCost(( (t->cache.population / 4000) * _settings_game.ourSettings.clearLandscapePopulationMultiplier * (1024 / (distance * _settings_game.ourSettings.clearLandscapeDistanceMultiplier + 1)) / 48) + 1);
-					break;
+					if (c != NULL)
+					{
+
+						cost.MultiplyCost(
+							distancePeopleModifierCalculator(t->cache.population, distance, 10000, 250, 4, 230)
+						);
+					}
 				case MP_ROAD: ///< building and demolishing road should be a little easier
 					{
 						Owner owner = GetTileOwner(tile);
 
 						if(owner == OWNER_TOWN)
-							cost.MultiplyCost((((t->cache.population + 1) / 6400) * _settings_game.ourSettings.clearLandscapePopulationMultiplier * (1536 / (distance  * _settings_game.ourSettings.clearLandscapeDistanceMultiplier + 1))) + 1);
-						else
-							cost.MultiplyCost((((t->cache.population + 1) / 6400) * _settings_game.ourSettings.clearLandscapePopulationMultiplier * (1536 / (distance  * _settings_game.ourSettings.clearLandscapeDistanceMultiplier + 1))) + 1);
+							cost.MultiplyCost(
+								distancePeopleModifierCalculator(t->cache.population, distance, 3000, 250, 1, 230)
+							);
 						break;
 					}
 				case MP_RAILWAY:  ///< don't give you more money on selling than you paid
@@ -675,10 +713,7 @@ CommandCost CmdLandscapeClear(TileIndex tile, DoCommandFlag flags, uint32 p1, ui
 				case MP_TREES:
 					cost.MultiplyCost((((t->cache.population + 1) / 3200) * _settings_game.ourSettings.clearLandscapePopulationMultiplier * (1536 / (distance  * _settings_game.ourSettings.clearLandscapeDistanceMultiplier + 1))) + 1);
 					break;
-				default:
-					if (t->cache.population < 800) break;
-					cost.MultiplyCost((t->cache.population / 4000) * _settings_game.ourSettings.clearLandscapePopulationMultiplier * (1536 / (distance  * _settings_game.ourSettings.clearLandscapeDistanceMultiplier + 1)) + 1);
-					break;
+				
 			}
 		}
 	}

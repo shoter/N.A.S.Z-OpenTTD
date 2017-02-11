@@ -31,7 +31,7 @@ typedef uint8  Minute;
 
 static const int BASE_DAY_TICKS    = 33;
 
-static const int TIME_SCALE = 180;
+static const int TIME_SCALE = 7200;
 static const int TOWN_GROWTH_SCALE = 1;
 static const int INDUSTRY_PRODUCTION_SCALE = 2;
 static const int CARGO_AGING_SCALE = 1;
