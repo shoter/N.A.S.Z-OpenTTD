@@ -18,6 +18,7 @@
 #include "window_func.h"
 #include "town.h"
 #include "company_base.h"
+#include "console_func.h"
 #include "error.h"
 #include "strings_func.h"
 #include "core/random_func.hpp"
@@ -604,6 +605,14 @@ void IndustryProductionCallback(Industry *ind, int reason)
 			ind->incoming_cargo_waiting[i] = Clamp(ind->incoming_cargo_waiting[i] - DerefIndProd(group->subtract_input[i], deref) * multiplier, 0, 0xFFFF);
 		}
 		for (uint i = 0; i < 2; i++) {
+			/*uint16 output = max(DerefIndProd(group->add_output[i], deref),0);
+			if (output > 0)
+			{
+				uint16 old = output;
+				
+				output = DivideExponentialy(output, -_settings_game.ourSettings.industryProductionScale);
+				//IConsolePrintF(CC_DEFAULT, "%d %d %d", output, old, ind->produced_cargo[i]);
+			}*/
 			ind->produced_cargo_waiting[i] = Clamp(ind->produced_cargo_waiting[i] + max(DerefIndProd(group->add_output[i], deref), 0) * multiplier, 0, 0xFFFF);
 		}
 

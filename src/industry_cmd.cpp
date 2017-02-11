@@ -41,7 +41,7 @@
 #include "object_base.h"
 #include "game/game.hpp"
 #include "error.h"
-
+#include "console_func.h"
 #include "table/strings.h"
 #include "table/industry_land.h"
 #include "table/build_industry.h"
@@ -1093,6 +1093,7 @@ static void ChopLumberMillTrees(Industry *i)
 static void ProduceIndustryGoods(Industry *i)
 {
 	const IndustrySpec *indsp = GetIndustrySpec(i->type);
+	const static uint16 produceTicks = DivideExponentialy(INDUSTRY_PRODUCE_TICKS, -_settings_game.ourSettings.industryProductionScale);
 
 	/* play a sound? */
 	if ((i->counter & 0x3F) == 0) {
@@ -1108,10 +1109,14 @@ static void ProduceIndustryGoods(Industry *i)
 	i->counter--;
 
 	/* produce some cargo */
-	if ((i->counter % INDUSTRY_PRODUCE_TICKS) == 0) {
+	if ((i->counter % produceTicks) == 0) {
 		if (HasBit(indsp->callback_mask, CBM_IND_PRODUCTION_256_TICKS)) IndustryProductionCallback(i, 1);
 
 		IndustryBehaviour indbehav = indsp->behaviour;
+
+		if(i->produced_cargo_waiting[0] > 0)
+			IConsolePrintF(CC_DEFAULT, "%d", i->production_rate[0]);
+
 		i->produced_cargo_waiting[0] = min(0xffff, i->produced_cargo_waiting[0] + i->production_rate[0]);
 		i->produced_cargo_waiting[1] = min(0xffff, i->produced_cargo_waiting[1] + i->production_rate[1]);
 

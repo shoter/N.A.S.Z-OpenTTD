@@ -3894,13 +3894,13 @@ uint MoveGoodsToStation(CargoID type, uint amount, SourceType source_type, Sourc
 	/* From now we'll calculate with fractal cargo amounts.
 	 * First determine how much cargo we really have. */
 	amount *= best_rating1 + 1;
-	auto start_amount = amount;
+	/*auto start_amount = amount;
 	if(IsCargoInClass(type, CC_PASSENGERS) || IsCargoInClass(type, CC_MAIL))
 		amount = DivideExponentialy(amount, _settings_game.ourSettings.houseProductionScale);
 	else
-		amount = DivideExponentialy(amount, _settings_game.ourSettings.industryProductionScale);
+		amount = DivideExponentialy(amount, _settings_game.ourSettings.industryProductionScale);*/
 
-	IConsolePrintF(CC_DEFAULT, "Station %s amount - %d => %d", st1->name, start_amount, amount);
+	//IConsolePrintF(CC_DEFAULT, "[%d]Station %s amount - %d => %d", type, st1->name, start_amount, amount);
 
 	if (st2 == NULL) {
 		/* only one station around */
