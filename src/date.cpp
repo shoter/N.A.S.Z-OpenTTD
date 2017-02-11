@@ -282,6 +282,7 @@ void IncreaseDate()
 	if (_game_mode == GM_MENU) return;
 
 	_date_fract++;
+	IConsolePrintF(CC_DEFAULT, "date_fract %d / %d", _date_fract, DAY_TICKS);
 	if (_date_fract < DAY_TICKS) return;
 	_date_fract = 0;
 

@@ -613,7 +613,7 @@ int distancePeopleModifierCalculator(int people, int distance, int multiplier, i
 
 	
 
-	IConsolePrintF(CC_DEFAULT, "landscape pop %d, distance %d, final %d", people, distance, fin);
+	//IConsolePrintF(CC_DEFAULT, "landscape pop %d, distance %d, final %d", people, distance, fin);
 
 	return fin;
 }
