@@ -205,6 +205,48 @@ bool GroundVehicle<T, Type>::IsChainInDepot() const
 	return true;
 }
 
+/**
+* Update the speed of the vehicle.
+*
+* It updates the cur_speed and subspeed variables depending on the state
+* of the vehicle; in this case the current acceleration, minimum and
+* maximum speeds of the vehicle. It returns the distance that that the
+* vehicle can drive this tick. #Vehicle::GetAdvanceDistance() determines
+* the distance to drive before moving a step on the map.
+* @param accel     The acceleration we would like to give this vehicle.
+* @param min_speed The minimum speed here, in vehicle specific units.
+* @param max_speed The maximum speed here, in vehicle specific units.
+* @return Distance to drive.
+*/
+template <class T, VehicleType Type>
+inline uint GroundVehicle<T, Type>::DoUpdateSpeed(uint accel, int min_speed, int max_speed)
+{
+	uint spd = this->subspeed + accel;
+	this->subspeed = (byte)spd;
+
+	/* When we are going faster than the maximum speed, reduce the speed
+	* somewhat gradually. But never lower than the maximum speed. */
+	int tempmax = max_speed;
+	if (this->cur_speed > max_speed) {
+		tempmax = max(this->cur_speed - (this->cur_speed / 10) - 1, max_speed);
+	}
+
+	/* Enforce a maximum and minimum speed. Normally we would use something like
+	* Clamp for this, but in this case min_speed might be below the maximum speed
+	* threshold for some reason. That makes acceleration fail and assertions
+	* happen in Clamp. So make it explicit that min_speed overrules the maximum
+	* speed by explicit ordering of min and max. */
+	this->cur_speed = spd = max(min(this->cur_speed + ((int)spd >> 8), tempmax), min_speed);
+
+	int scaled_spd = this->GetAdvanceSpeed(spd); 
+
+	scaled_spd = DivideExponentialy(scaled_spd, _settings_game.ourSettings.vehicleSpeedMultiplier);
+
+	scaled_spd += this->progress;
+	this->progress = 0; // set later in *Handler or *Controller
+	return scaled_spd;
+}
+
 /* Instantiation for Train */
 template struct GroundVehicle<Train, VEH_TRAIN>;
 /* Instantiation for RoadVehicle */

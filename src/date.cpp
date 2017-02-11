@@ -288,7 +288,7 @@ void IncreaseDate()
 	/* increase day counter */
 	_date++;
 
-	YearMonthDay ymd;
+	YearMonthDay ymd; 
 	ConvertDateToYMD(_date, &ymd);
 
 	/* check if we entered a new month? */

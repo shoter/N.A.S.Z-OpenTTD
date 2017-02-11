@@ -656,11 +656,12 @@ static int UpdateAircraftSpeed(Aircraft *v, uint speed_limit = SPEED_LIMIT_NONE,
 	if (_settings_game.vehicle.plane_speed > 1) spd /= _settings_game.vehicle.plane_speed;
 
 	/* Convert direction-independent speed into direction-dependent speed. (old movement method) */
-	spd = v->GetOldAdvanceSpeed(spd) / _settings_game.ourSettings.vehicleSpeedMultiplier;
+	spd = v->GetOldAdvanceSpeed(spd);
+	spd = DivideExponentialy(spd, _settings_game.ourSettings.vehicleSpeedMultiplier);
 
 	spd += v->progress;
 	v->progress = (byte)spd;
-	return spd >> 8;
+	return spd >> 8; 
 }
 
 /**

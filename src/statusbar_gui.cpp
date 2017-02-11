@@ -232,6 +232,7 @@ struct StatusBarWindow : Window {
 			this->reminder_timeout = REMINDER_STOP;
 			this->SetWidgetDirty(WID_S_MIDDLE);
 		}
+		this->SetWidgetDirty(WID_S_LEFT);
 	}
 };
 

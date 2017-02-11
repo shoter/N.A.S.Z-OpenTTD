@@ -6,8 +6,8 @@
  * OpenTTD is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <http://www.gnu.org/licenses/>.
  */
-
-/** @file settings_gui.cpp GUI for settings. */
+ 
+/** @file settings_gui.cpp GUI for settings. */ 
 
 #include "stdafx.h" 
 #include "currency.h"
@@ -1753,10 +1753,12 @@ static SettingsContainer &GetSettingsTree()
 				townCosts->Add(new SettingEntry("ourSettings.buildStationDistanceMultiplier"));
 			}
 			ourSettings->Add(new SettingEntry("ourSettings.vehicleSpeedMultiplier"));
+			ourSettings->Add(new SettingEntry("ourSettings.industryProductionScale"));
 			ourSettings->Add(new SettingEntry("ourSettings.houseProductionScale"));
 			ourSettings->Add(new SettingEntry("ourSettings.houseProductionTimeScaler"));
 			ourSettings->Add(new SettingEntry("ourSettings.profitDivider"));
 			ourSettings->Add(new SettingEntry("ourSettings.uncleMoney"));
+			ourSettings->Add(new SettingEntry("ourSettings.stationRatingTimeScale"));
 		}
 
 		main->Init();

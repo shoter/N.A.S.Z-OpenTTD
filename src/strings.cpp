@@ -15,6 +15,7 @@
 #include "town.h"
 #include "waypoint_base.h"
 #include "depot_base.h"
+#include "console_func.h"
 #include "industry.h"
 #include "newgrf_text.h"
 #include "fileio_func.h"
@@ -412,9 +413,17 @@ static char *FormatYmdString(char *buff, Date date, const char *last, uint case_
 	YearMonthDay ymd;
 	ConvertDateToYMD(date, &ymd);
 
-	int64 args[] = {ymd.day + STR_DAY_NUMBER_1ST - 1, STR_MONTH_ABBREV_JAN + ymd.month, ymd.year};
+	
+
+	double dayPercent = (double)_date_fract / (double)(DAY_TICKS);
+	int hour = (dayPercent * 24);
+	hour %= 24;
+	int minute = dayPercent * 1440;
+	minute %= 60;
+
+	int64 args[] = {ymd.day + STR_DAY_NUMBER_1ST - 1, STR_MONTH_ABBREV_JAN + ymd.month, ymd.year, hour, minute};
 	StringParameters tmp_params(args);
-	return FormatString(buff, GetStringPtr(STR_FORMAT_DATE_LONG), &tmp_params, last, case_index);
+	return FormatString(buff, GetStringPtr(STR_FORMAT_DATE_REAL), &tmp_params, last, case_index);
 }
 
 static char *FormatMonthAndYear(char *buff, Date date, const char *last, uint case_index)

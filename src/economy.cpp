@@ -1112,7 +1112,8 @@ static Money DeliverGoods(int num_pieces, CargoID cargo_type, StationID dest, Ti
 	st->town->received[cs->town_effect].new_act += accepted;
 
 	/* Determine profit */
-	Money profit = GetTransportedGoodsIncome(accepted, DistanceManhattan(source_tile, st->xy), days_in_transit, cargo_type) / Money(_settings_game.ourSettings.profitDivider);
+	Money profit = GetTransportedGoodsIncome(accepted, DistanceManhattan(source_tile, st->xy), days_in_transit, cargo_type);
+	profit = DivideExponentialy(profit, _settings_game.ourSettings.profitDivider);
 
 	/* Update the cargo monitor. */
 	AddCargoDelivery(cargo_type, company->index, accepted, src_type, src, st);

@@ -3295,6 +3295,8 @@ static void TruncateCargo(const CargoSpec *cs, GoodsEntry *ge, uint amount = UIN
 
 static void UpdateStationRating(Station *st)
 {
+	if(_settings_game.ourSettings.stationRatingTimeScale > 0 && (_tick_counter % _settings_game.ourSettings.stationRatingTimeScale) != 0) return;
+
 	bool waiting_changed = false;
 
 	byte_inc_sat(&st->time_since_load);
@@ -3884,14 +3886,25 @@ uint MoveGoodsToStation(CargoID type, uint amount, SourceType source_type, Sourc
 	}
 
 	/* no stations around at all? */
-	if (st1 == NULL) return 0;
+	if (st1 == NULL) 
+	{
+		return 0;
+	}
 
 	/* From now we'll calculate with fractal cargo amounts.
 	 * First determine how much cargo we really have. */
 	amount *= best_rating1 + 1;
+	auto start_amount = amount;
+	if(IsCargoInClass(type, CC_PASSENGERS) || IsCargoInClass(type, CC_MAIL))
+		amount = DivideExponentialy(amount, _settings_game.ourSettings.houseProductionScale);
+	else
+		amount = DivideExponentialy(amount, _settings_game.ourSettings.industryProductionScale);
+
+	IConsolePrintF(CC_DEFAULT, "Station %s amount - %d => %d", st1->name, start_amount, amount);
 
 	if (st2 == NULL) {
 		/* only one station around */
+		
 		return UpdateStationWaiting(st1, type, amount, source_type, source_id);
 	}
 
@@ -3909,6 +3922,7 @@ uint MoveGoodsToStation(CargoID type, uint amount, SourceType source_type, Sourc
 	assert(worst_cargo <= (amount - worst_cargo));
 
 	/* And then send the cargo to the stations! */
+	IConsolePrintF(CC_DEFAULT, "Station 1 amount - %d - %d = %d", amount, worst_cargo, amount - worst_cargo);
 	uint moved = UpdateStationWaiting(st1, type, amount - worst_cargo, source_type, source_id);
 	/* These two UpdateStationWaiting's can't be in the statement as then the order
 	 * of execution would be undefined and that could cause desyncs with callbacks. */

@@ -491,8 +491,9 @@ static void MakeTownHouseBigger(TileIndex tile)
  */
 static void TownGenerateCargo (Town *t, CargoID ct, uint amount, StationFinder &stations)
 {
-	if(t->house_production_tick >= _settings_game.ourSettings.houseProductionTimeScaler)
+	if(((_tick_counter + t->cache.population) % (_settings_game.ourSettings.houseProductionTimeScaler)) == 0)
 	{
+		
 		// custom cargo generation factor
 		int cf = _settings_game.ourSettings.houseProductionScale;
 	
@@ -501,23 +502,10 @@ static void TownGenerateCargo (Town *t, CargoID ct, uint amount, StationFinder &
 			amount = (amount + 1) >> 1;
 		}
 	
-		// apply custom factor?
-		if (cf < 0) {
-			// aprox (amount / 2^cf)
-			// adjust with a constant offset of {(2 ^ cf) - 1} (i.e. add cf * 1-bits) before dividing to ensure that it doesn't become zero
-			// this skews the curve a little so that isn't entirely exponential, but will still decrease
-			amount = (amount + ((1 << -cf) - 1)) >> -cf;
-		}
-	
-		else if (cf > 0) {
-			// approx (amount * 2^cf)
-			// XXX: overflow?
-			amount = amount << cf;
-		}
+		amount;
 	
 		// with the adjustments above, this should never happen
 		assert(amount > 0);
-	
 		// send cargo to station
 		uint moved = MoveGoodsToStation(ct, amount, ST_TOWN, t->index, stations.GetStations());
 	

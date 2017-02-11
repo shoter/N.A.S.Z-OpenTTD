@@ -385,11 +385,12 @@ static bool ShipAccelerate(Vehicle *v)
 	/* updates statusbar only if speed have changed to save CPU time */
 	if (spd != v->cur_speed) {
 		v->cur_speed = spd;
-		SetWindowWidgetDirty(WC_VEHICLE_VIEW, v->index, WID_VV_START_STOP);
+		SetWindowWidgetDirty(WC_VEHICLE_VIEW, v->index, WID_VV_START_STOP); 
 	}
 
 	/* Convert direction-independent speed into direction-dependent speed. (old movement method) */
-	spd = v->GetOldAdvanceSpeed(spd) / _settings_game.ourSettings.vehicleSpeedMultiplier;
+	spd = v->GetOldAdvanceSpeed(spd);
+	spd = DivideExponentialy(spd, _settings_game.ourSettings.vehicleSpeedMultiplier);
 
 	if (spd == 0) return false;
 	if ((byte)++spd == 0) return true;

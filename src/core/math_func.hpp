@@ -234,6 +234,26 @@ static inline T Delta(const T a, const T b)
 	return (a < b) ? b - a : a - b;
 }
 
+
+template<typename T>
+static inline T DivideExponentialy(const T& variable, int8 exponential)
+{
+	// apply custom factor?
+	if (exponential < 0) {
+		// aprox (amount / 2^cf)
+		// adjust with a constant offset of {(2 ^ cf) - 1} (i.e. add cf * 1-bits) before dividing to ensure that it doesn't become zero
+		// this skews the curve a little so that isn't entirely exponential, but will still decrease
+		return ((variable + ((1 << -exponential) - 1)) >> -exponential);
+	}
+
+	else if (exponential > 0) {
+		// approx (amount * 2^cf)
+		// XXX: overflow?
+		return (variable << exponential);
+	}
+
+}
+
 /**
  * Checks if a value is between a window started at some base point.
  *
