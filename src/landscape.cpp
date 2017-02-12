@@ -693,7 +693,7 @@ CommandCost CmdLandscapeClear(TileIndex tile, DoCommandFlag flags, uint32 p1, ui
 					{
 
 						cost.MultiplyCost(
-							distancePeopleModifierCalculator(t->cache.population, distance, 10000, 250, 4, 230)
+							distancePeopleModifierCalculator(t->cache.population, distance, 300, 250, 4, 100)
 						);
 					}
 				case MP_ROAD: ///< building and demolishing road should be a little easier

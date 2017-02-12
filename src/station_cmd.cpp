@@ -3496,6 +3496,8 @@ void DeleteStaleLinks(Station *from)
 			Station *to = Station::Get((*lg)[it->first].Station());
 			assert(to->goods[c].node == it->first);
 			++it; // Do that before removing the edge. Anything else may crash.
+			IConsolePrintF(CC_DEFAULT, "%d %d", _date, edge.LastUpdate());
+			DEBUG(misc, 0, "%d %d", _date, edge.LastUpdate());
 			assert(_date >= edge.LastUpdate());
 			uint timeout = LinkGraph::MIN_TIMEOUT_DISTANCE + (DistanceManhattan(from->xy, to->xy) >> 3);
 			if ((uint)(_date - edge.LastUpdate()) > timeout) {

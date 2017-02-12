@@ -852,7 +852,7 @@ int openttd_main(int argc, char *argv[])
 	GenerateWorld(GWM_EMPTY, 64, 64); // Make the viewport initialization happy
 	WaitTillGeneratedWorld();
 
-	LoadIntroGame(false);
+	//LoadIntroGame(false);
 
 	CheckForMissingGlyphs();
 

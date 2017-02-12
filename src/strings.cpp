@@ -415,7 +415,7 @@ static char *FormatYmdString(char *buff, Date date, const char *last, uint case_
 
 	
 
-	double dayPercent = (double)_date_fract / (double)(DAY_TICKS);
+	double dayPercent = (double)(_date_fract) / (double)(DAY_TICKS);
 	int hour = (dayPercent * 24);
 	hour %= 24;
 	int minute = dayPercent * 1440;

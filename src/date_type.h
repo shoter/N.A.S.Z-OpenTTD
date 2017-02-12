@@ -13,9 +13,9 @@
 #define DATE_TYPE_H
 
 
-typedef uint32  Date;      ///< The type to store our dates in
-typedef uint32 DateFract; ///< The fraction of a date we're in, i.e. the number of ticks since the last date changeover
-typedef uint32  Ticks;     ///< The type to store ticks in
+typedef int32  Date;      ///< The type to store our dates in
+typedef int32 DateFract; ///< The fraction of a date we're in, i.e. the number of ticks since the last date changeover
+typedef int32  Ticks;     ///< The type to store ticks in
 
 typedef int32  Year;  ///< Type for the year, note: 0 based, i.e. starts at the year 0.
 typedef uint8  Month; ///< Type for the month, note: 0 based, i.e. 0 = January, 11 = December.
@@ -31,7 +31,7 @@ typedef uint8  Minute;
 
 static const int BASE_DAY_TICKS    = 33;
 
-static const int TIME_SCALE = 7200 /*5 godzin - 1 dzien*/ * 4;
+static const int TIME_SCALE = 7200 * 2;
 static const int TOWN_GROWTH_SCALE = 1;
 static const int INDUSTRY_PRODUCTION_SCALE = 2;
 static const int CARGO_AGING_SCALE = 1;

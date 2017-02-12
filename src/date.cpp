@@ -21,14 +21,14 @@
 #include "linkgraph/linkgraph.h"
 #include "saveload/saveload.h"
 #include "console_func.h"
-
+#include "console_func.h"
 #include "safeguards.h"
 
 Year      _cur_year;   ///< Current year, starting at 0
 Month     _cur_month;  ///< Current month (0..11)
 Date      _date;       ///< Current date in days (day counter)
 DateFract _date_fract; ///< Fractional part of the day.
-uint16 _tick_counter;  ///< Ever incrementing (and sometimes wrapping) tick counter for setting off various events
+uint32 _tick_counter;  ///< Ever incrementing (and sometimes wrapping) tick counter for setting off various events
 
 /**
  * Set the date.
@@ -282,7 +282,8 @@ void IncreaseDate()
 	if (_game_mode == GM_MENU) return;
 
 	_date_fract++;
-	IConsolePrintF(CC_DEFAULT, "date_fract %d / %d", _date_fract, DAY_TICKS);
+	//IConsolePrintF(CC_DEFAULT, "%d %d", _date_fract, DAY_TICKS);
+
 	if (_date_fract < DAY_TICKS) return;
 	_date_fract = 0;
 
