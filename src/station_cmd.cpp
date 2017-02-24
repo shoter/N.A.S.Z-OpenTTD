@@ -3383,8 +3383,9 @@ static void UpdateStationRating(Station *st)
 			if (Company::IsValidID(st->owner) && HasBit(st->town->statues, st->owner)) rating += 26;
 
 			byte age = ge->last_age;
-			(age >= 3) ||
-			(rating += 10, age >= 2) ||
+			(rating, age >= 9) ||
+			(rating += 8 - age, age >= 3) ||
+			(rating += 8, age >= 2) ||
 			(rating += 10, age >= 1) ||
 			(rating += 13, true);
 
@@ -3396,7 +3397,7 @@ static void UpdateStationRating(Station *st)
 
 				/* if rating is <= 64 and more than 100 items waiting on average per destination,
 				 * remove some random amount of goods from the station */
-				if (rating <= 64 && waiting_avg >= 100) {
+				if (rating <= 50 && waiting_avg >= 200) {
 					int dec = Random() & 0x1F;
 					if (waiting_avg < 200) dec &= 7;
 					waiting -= (dec + 1) * num_dests;
@@ -3406,7 +3407,12 @@ static void UpdateStationRating(Station *st)
 				/* if rating is <= 127 and there are any items waiting, maybe remove some goods. */
 				if (rating <= 127 && waiting != 0) {
 					uint32 r = Random();
-					if (rating <= (int)GB(r, 0, 7)) {
+					uint32 r2 = 0;
+
+					if (IsCargoInClass(cs->Index(), CC_PASSENGERS))
+						r2 = Random();
+
+					if (rating <= (int)GB(r, 0, 7) - (int)GB(r2, 0, 5)) {
 						/* Need to have int, otherwise it will just overflow etc. */
 						waiting = max((int)waiting - (int)((GB(r, 8, 2) - 1) * num_dests), 0);
 						waiting_changed = true;
