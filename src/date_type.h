@@ -12,10 +12,16 @@
 #ifndef DATE_TYPE_H
 #define DATE_TYPE_H
 
+/*
+	Day will have 672 000 ticks. It guarantees that 30days in game is equal to 7 days in reality if we assume that 1 tick = 30 ms.
+	hour in game - 840s
+	minute in game ~ 14s
+*/
 
-typedef int32  Date;      ///< The type to store our dates in
+
+typedef int64  Date;      ///< The type to store our dates in
 typedef uint16 DateFract; ///< The fraction of a date we're in, i.e. the number of ticks since the last date changeover
-typedef int32  Ticks;     ///< The type to store ticks in
+typedef int64  Ticks;     ///< The type to store ticks in
 
 typedef int32  Year;  ///< Type for the year, note: 0 based, i.e. starts at the year 0.
 typedef uint8  Month; ///< Type for the month, note: 0 based, i.e. 0 = January, 11 = December.
@@ -27,7 +33,7 @@ typedef uint8  Day;   ///< Type for the day of the month, note: 1 based, first d
  * 1 tick is approximately 30 ms.
  * 1 day is thus about 2 seconds (74 * 30 = 2220) on a machine that can run OpenTTD normally
  */
-static const int DAY_TICKS         =  74; ///< ticks per day
+static const int DAY_TICKS         =  672000; ///< ticks per day
 static const int DAYS_IN_YEAR      = 365; ///< days per year
 static const int DAYS_IN_LEAP_YEAR = 366; ///< sometimes, you need one day more...
 
