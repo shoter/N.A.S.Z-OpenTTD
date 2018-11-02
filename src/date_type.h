@@ -19,9 +19,9 @@
 */
 
 
-typedef int64  Date;      ///< The type to store our dates in
-typedef uint16 DateFract; ///< The fraction of a date we're in, i.e. the number of ticks since the last date changeover
-typedef int64  Ticks;     ///< The type to store ticks in
+typedef int32  Date;      ///< The type to store our dates in
+typedef uint32 DateFract; ///< The fraction of a date we're in, i.e. the number of ticks since the last date changeover
+typedef int32  Ticks;     ///< The type to store ticks in
 
 typedef int32  Year;  ///< Type for the year, note: 0 based, i.e. starts at the year 0.
 typedef uint8  Month; ///< Type for the month, note: 0 based, i.e. 0 = January, 11 = December.
