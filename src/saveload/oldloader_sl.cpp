@@ -1581,7 +1581,7 @@ static const OldChunks main_chunk[] = {
 	OCL_ASSERT( OC_TTD, 0 ),
 	OCL_ASSERT( OC_TTO, 0 ),
 	OCL_VAR ( OC_FILE_U16 | OC_VAR_U32, 1, &_date ),
-	OCL_VAR ( OC_UINT16,   1, &_date_fract ),
+	OCL_VAR ( OC_UINT32,   1, &_date_fract ),
 	OCL_NULL( 600 ),            ///< TextEffects
 	OCL_VAR ( OC_UINT32,   2, &_random.state ),
 
