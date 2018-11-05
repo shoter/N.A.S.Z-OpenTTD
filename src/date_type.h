@@ -26,6 +26,8 @@ typedef int32  Ticks;     ///< The type to store ticks in
 typedef int32  Year;  ///< Type for the year, note: 0 based, i.e. starts at the year 0.
 typedef uint8  Month; ///< Type for the month, note: 0 based, i.e. 0 = January, 11 = December.
 typedef uint8  Day;   ///< Type for the day of the month, note: 1 based, first day of a month is 1.
+typedef uint8 Hour;
+typedef uint8 Minute;
 
 /**
  * 1 day is 74 ticks; _date_fract used to be uint16 and incremented by 885. On
@@ -110,6 +112,14 @@ struct YearMonthDay {
 	Year  year;   ///< Year (0...)
 	Month month;  ///< Month (0..11)
 	Day   day;    ///< Day (1..31)
+};
+
+struct YearMonthDatetime {
+	Year year;
+	Month month;
+	Day day;
+	Hour hour;
+	Minute minute;
 };
 
 static const Year  INVALID_YEAR  = -1; ///< Representation of an invalid year

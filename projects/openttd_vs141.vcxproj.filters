@@ -1947,9 +1947,6 @@
     <ClInclude Include="..\src\table\string_colours.h">
       <Filter>Tables</Filter>
     </ClInclude>
-    <ClInclude Include="..\src\..\objs\langs\table\strings.h">
-      <Filter>Tables</Filter>
-    </ClInclude>
     <ClInclude Include="..\src\table\town_land.h">
       <Filter>Tables</Filter>
     </ClInclude>
@@ -3094,5 +3091,10 @@
   <ItemGroup>
     <None Include="..\media\openttd.ico" />
     <None Include="..\README.md" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\objs\lang\table\strings.h">
+      <Filter>Tables</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

@@ -412,6 +412,17 @@ static char *FormatYmdString(char *buff, Date date, const char *last, uint case_
 	return FormatString(buff, GetStringPtr(STR_FORMAT_DATE_LONG), &tmp_params, last, case_index);
 }
 
+static char *FormatYmdtString(char *buff, Date date, DateFract fract, const char *last, uint case_index)
+{
+	YearMonthDatetime ymdt;
+
+	int64 args[] = { ymdt.day + STR_DAY_NUMBER_1ST - 1, STR_MONTH_ABBREV_JAN + ymdt.month, ymdt.year, ymdt.hour, ymdt.minute };
+	StringParameters tmp_params(args);
+
+	return FormatString(buff, GetStringPtr(STR_FORMAT_DATE_TIME), &tmp_params, last, case_index);
+
+}
+
 static char *FormatMonthAndYear(char *buff, Date date, const char *last, uint case_index)
 {
 	YearMonthDay ymd;
