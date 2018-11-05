@@ -1208,6 +1208,11 @@ static char *FormatString(char *buff, const char *str_arg, StringParameters *arg
 				next_substr_case_index = 0;
 				break;
 
+			case SCC_DATE_TIME:
+				buff = FormatYmdtString(buff, args->GetInt32(SCC_DATE_LONG), args->GetInt32(SCC_DATE_LONG), last, next_substr_case_index);
+				next_substr_case_index = 0;
+				break;
+
 			case SCC_DATE_ISO: // {DATE_ISO}
 				buff = FormatTinyOrISODate(buff, args->GetInt32(), STR_FORMAT_DATE_ISO, last);
 				break;
