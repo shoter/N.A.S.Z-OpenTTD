@@ -420,7 +420,6 @@ static char *FormatYmdtString(char *buff, Date date, DateFract fract, const char
 	StringParameters tmp_params(args);
 
 	return FormatString(buff, GetStringPtr(STR_FORMAT_DATE_TIME), &tmp_params, last, case_index);
-
 }
 
 static char *FormatMonthAndYear(char *buff, Date date, const char *last, uint case_index)
