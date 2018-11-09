@@ -92,7 +92,9 @@
     <LocalDebuggerWorkingDirectory>$(ProjectDir)..\bin</LocalDebuggerWorkingDirectory>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
-    <IncludePath>C:\MinGW\include;C:\MinGW\include\libpng15;C:\MinGW\msys\1.0\local\include;$(IncludePath)</IncludePath>
+    <IncludePath>D:\programowanie\openttd\libs\freetype;D:\programowanie\openttd\libs\lzo;D:\programowanie\openttd\libs\lzma;D:\programowanie\openttd\libs\zlib2;D:\programowanie\openttd\libs\png;$(IncludePath)</IncludePath>
+    <LibraryPath>D:\programowanie\openttd\libs\bin;$(LibraryPath)</LibraryPath>
+    <SourcePath>D:\programowanie\openttd\libs\freetype;D:\programowanie\openttd\libs\lzo;D:\programowanie\openttd\libs\png;D:\programowanie\openttd\libs\lzma;D:\programowanie\openttd\libs\zlib2;$(SourcePath)</SourcePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <IncludePath>D:\programowanie\openttd\libs\freetype;D:\programowanie\openttd\libs\lzo;D:\programowanie\openttd\libs\lzma;D:\programowanie\openttd\libs\zlib2;D:\programowanie\openttd\libs\png;$(IncludePath)</IncludePath>
@@ -139,7 +141,7 @@
       <TreatWarningAsError>false</TreatWarningAsError>
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
-      <CallingConvention>FastCall</CallingConvention>
+      <CallingConvention>Cdecl</CallingConvention>
       <CompileAs>Default</CompileAs>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <EnforceTypeConversionRules>true</EnforceTypeConversionRules>
@@ -149,7 +151,7 @@
       <Culture>0x0809</Culture>
     </ResourceCompile>
     <Link>
-      <AdditionalDependencies>winmm.lib;ws2_32.lib;imm32.lib;libpng.lib;zlibstat.lib;lzo2.lib;liblzma.lib;libfreetype2.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>winmm.lib;ws2_32.lib;imm32.lib;libpng.lib;libz-static.lib;lzo2.lib;liblzma.lib;freetype240.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <IgnoreSpecificDefaultLibraries>%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
       <GenerateDebugInformation>true</GenerateDebugInformation>
