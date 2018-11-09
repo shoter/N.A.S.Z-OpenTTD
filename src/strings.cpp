@@ -10,6 +10,7 @@
 /** @file strings.cpp Handling of translated strings. */
 
 #include "stdafx.h"
+#include "console_func.h"
 #include "currency.h"
 #include "station_base.h"
 #include "town.h"
@@ -415,6 +416,7 @@ static char *FormatYmdString(char *buff, Date date, const char *last, uint case_
 static char *FormatYmdtString(char *buff, Date date, DateFract fract, const char *last, uint case_index)
 {
 	YearMonthDatetime ymdt;
+	ConvertDateToYMDT(date, fract, &ymdt);
 
 	int64 args[] = { ymdt.day + STR_DAY_NUMBER_1ST - 1, STR_MONTH_ABBREV_JAN + ymdt.month, ymdt.year, ymdt.hour, ymdt.minute };
 	StringParameters tmp_params(args);
@@ -1209,9 +1211,13 @@ static char *FormatString(char *buff, const char *str_arg, StringParameters *arg
 				break;
 
 			case SCC_DATE_TIME:
-				buff = FormatYmdtString(buff, args->GetInt32(SCC_DATE_LONG), args->GetInt32(SCC_DATE_LONG), last, next_substr_case_index);
+			{
+				Date date = args->GetInt32(SCC_DATE_LONG);
+				DateFract fract = args->GetInt32(SCC_DATE_LONG);
+				buff = FormatYmdtString(buff, date, fract, last, next_substr_case_index);
 				next_substr_case_index = 0;
 				break;
+			}
 
 			case SCC_DATE_ISO: // {DATE_ISO}
 				buff = FormatTinyOrISODate(buff, args->GetInt32(), STR_FORMAT_DATE_ISO, last);

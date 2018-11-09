@@ -140,6 +140,14 @@ void ConvertDateToYMD(Date date, YearMonthDay *ymd)
 	ymd->day = x & 0x1F;
 }
 
+void ConvertDateToYMDT(Date date, DateFract fract, YearMonthDatetime *ymdt)
+{
+	ConvertDateToYMD(date, ymdt);
+
+	ymdt->hour = fract / HOUR_TICK;
+	ymdt->minute = (fract - ymdt->hour * HOUR_TICK) / MINUTE_TICK;
+}
+
 /**
  * Converts a tuple of Year, Month and Day to a Date.
  * @param year  is a number between 0..MAX_YEAR

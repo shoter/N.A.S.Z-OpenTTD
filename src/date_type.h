@@ -36,6 +36,8 @@ typedef uint8 Minute;
  * 1 day is thus about 2 seconds (74 * 30 = 2220) on a machine that can run OpenTTD normally
  */
 static const int DAY_TICKS         =  672000; ///< ticks per day
+static const int HOUR_TICK = DAY_TICKS / 24;
+static const int MINUTE_TICK = HOUR_TICK / 60;
 static const int DAYS_IN_YEAR      = 365; ///< days per year
 static const int DAYS_IN_LEAP_YEAR = 366; ///< sometimes, you need one day more...
 
@@ -114,10 +116,7 @@ struct YearMonthDay {
 	Day   day;    ///< Day (1..31)
 };
 
-struct YearMonthDatetime {
-	Year year;
-	Month month;
-	Day day;
+struct YearMonthDatetime : YearMonthDay  {
 	Hour hour;
 	Minute minute;
 };

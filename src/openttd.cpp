@@ -10,7 +10,7 @@
 /** @file openttd.cpp Functions related to starting OpenTTD. */
 
 #include "stdafx.h"
-
+#include <string.h>
 #include "blitter/factory.hpp"
 #include "sound/sound_driver.hpp"
 #include "music/music_driver.hpp"
