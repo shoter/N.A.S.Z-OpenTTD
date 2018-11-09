@@ -276,20 +276,35 @@ static void OnNewDay()
 	SetWindowClassesDirty(WC_TOWN_VIEW);
 }
 
+static void OnNewMinute()
+{
+	SetWindowWidgetDirty(WC_STATUS_BAR, 0, 0);
+}
+
+
 /**
  * Increases the tick counter, increases date  and possibly calls
  * procedures that have to be called daily, monthly or yearly.
  */
 void IncreaseDate()
 {
+	static DateFract _lastMinute = 0;
+
 	/* increase day, and check if a new day is there? */
 	_tick_counter++;
 
 	if (_game_mode == GM_MENU) return;
 
 	_date_fract++;
+
+	if (_date_fract - _lastMinute > MINUTE_TICK)
+	{
+		OnNewMinute();
+	}
+
 	if (_date_fract < DAY_TICKS) return;
 	_date_fract = 0;
+	_lastMinute = 0;
 
 	/* increase day counter */
 	_date++;
