@@ -399,7 +399,8 @@ static bool ShipAccelerate(Vehicle *v)
 	if (spd == 0) return false;
 	if ((byte)++spd == 0) return true;
 
-	v->progress = (t = v->progress) - (byte)spd;
+	v->progress = (t = v->progress) - ((byte)spd >> (SLOW_MOVING_SPEED_BY + TILE_DISTANCE_MULT));
+
 
 	return (t < v->progress);
 }

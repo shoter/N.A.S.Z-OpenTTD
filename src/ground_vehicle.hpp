@@ -381,7 +381,7 @@ protected:
 		 * speed by explicit ordering of min and max. */
 		this->cur_speed = spd = max(min(this->cur_speed + ((int)spd >> 8), tempmax), min_speed);
 
-		int scaled_spd = this->GetAdvanceSpeed(spd);
+		int scaled_spd = this->GetAdvanceSpeed(spd >> (SLOW_MOVING_SPEED_BY + TILE_DISTANCE_MULT));
 
 		scaled_spd += this->progress;
 		this->progress = 0; // set later in *Handler or *Controller

@@ -1553,7 +1553,7 @@ static bool RoadVehController(RoadVehicle *v)
 		if (blocked) break;
 
 		/* Determine distance to next map position */
-		adv_spd = v->GetAdvanceDistance();
+		adv_spd = v->GetAdvanceDistance() >> TILE_DISTANCE_MULT;
 
 		/* Test for a collision, but only if another movement will occur. */
 		if (j >= adv_spd && RoadVehCheckTrainCrash(v)) break;

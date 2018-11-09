@@ -1393,7 +1393,8 @@ void StateGameLoop()
 		AnimateAnimatedTiles();
 		IncreaseDate();
 		RunTileLoop();
-		CallVehicleTicks();
+		if((_tick_counter % (1 << VEHICLES_SLOW_BY )) == 0)
+			CallVehicleTicks();
 		CallLandscapeTick();
 		BasePersistentStorageArray::SwitchMode(PSM_LEAVE_GAMELOOP);
 

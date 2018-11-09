@@ -27,6 +27,17 @@
 #include <list>
 #include <map>
 
+
+//2^x
+//every x tick vehicles will move
+const int VEHICLES_SLOW_BY = 1;
+
+//2^(x+1)
+//how big vehicle slowness should be
+const int SLOW_MOVING_SPEED_BY = 1;
+
+const int TILE_DISTANCE_MULT = 1;
+
 /** Vehicle status bits in #Vehicle::vehstatus. */
 enum VehStatus {
 	VS_HIDDEN          = 0x01, ///< Vehicle is not visible.

@@ -669,11 +669,13 @@ static int UpdateAircraftSpeed(Aircraft *v, uint speed_limit = SPEED_LIMIT_NONE,
 	/* Adjust distance moved by plane speed setting */
 	if (_settings_game.vehicle.plane_speed > 1) spd /= _settings_game.vehicle.plane_speed;
 
+	spd = spd >> SLOW_MOVING_SPEED_BY;
+
 	/* Convert direction-independent speed into direction-dependent speed. (old movement method) */
 	spd = v->GetOldAdvanceSpeed(spd);
 
 	spd += v->progress;
-	v->progress = (byte)spd;
+	v->progress = (byte)(spd);
 	return spd >> 8;
 }
 
@@ -994,6 +996,8 @@ static bool AircraftController(Aircraft *v)
 
 	count = UpdateAircraftSpeed(v, speed_limit, hard_limit);
 	if (count == 0) return false;
+
+	count = count >> TILE_DISTANCE_MULT;
 
 	if (v->turn_counter != 0) v->turn_counter--;
 
